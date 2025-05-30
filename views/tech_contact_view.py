@@ -1,0 +1,172 @@
+# views/tech_contact_view.py
+"""
+Handles drawing the Tech Contact view and its sub-views for coin selection and amount input.
+"""
+import pygame
+from typing import List, Dict, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from core.player_inventory import PlayerInventory
+    from core.region import Region 
+    from game_state import GameState 
+    from game_configs import GameConfigs 
+
+from core.enums import CryptoCoin
+
+from ui_theme import (
+    FONT_LARGE, FONT_MEDIUM, FONT_SMALL, FONT_XSMALL, YALE_BLUE, PLATINUM, TEXT_COLOR, NEON_BLUE, MEDIUM_GREY, LIGHT_GREY,
+    IMPERIAL_RED, EMERALD_GREEN, GOLDEN_YELLOW,
+    TEXT_INPUT_TEXT_COLOR, TEXT_INPUT_BG_COLOR, TEXT_INPUT_BORDER_COLOR,
+    draw_text, draw_input_box
+)
+from ui_components import Button
+
+SCREEN_WIDTH = 1024 
+
+def _draw_tech_shared_info(surface: pygame.Surface, player_inventory_data: 'PlayerInventory', game_state_data: 'GameState'):
+    y_offset = 80
+    line_height = 25
+    
+    col1_x = 40
+    current_y_col1 = y_offset
+    draw_text(surface, f"Cash: ${player_inventory_data.cash:,.2f}", col1_x, current_y_col1, font=FONT_MEDIUM, color=TEXT_COLOR)
+    current_y_col1 += line_height
+    draw_text(surface, "Crypto Holdings:", col1_x, current_y_col1, font=FONT_MEDIUM, color=TEXT_COLOR)
+    current_y_col1 += line_height
+    
+    wallet_empty = True
+    if player_inventory_data.crypto_wallet:
+        for coin, amount in player_inventory_data.crypto_wallet.items():
+            if amount > 0.00001: # Only show if substantial amount
+                wallet_empty = False
+                price = game_state_data.current_crypto_prices.get(coin, 0)
+                value_usd = amount * price
+                draw_text(surface, f"  {coin.value}: {amount:.4f} (${value_usd:,.2f})", col1_x + 10, current_y_col1, font=FONT_SMALL, color=NEON_BLUE)
+                current_y_col1 += line_height
+
+    # Display Staked DC and Pending Rewards
+    staked_amount = player_inventory_data.staked_drug_coin.get('staked_amount', 0.0)
+    pending_rewards = player_inventory_data.staked_drug_coin.get('pending_rewards', 0.0)
+
+    if staked_amount > 0:
+        wallet_empty = False
+        draw_text(surface, f"  Staked DC: {staked_amount:.4f}", col1_x + 10, current_y_col1, font=FONT_SMALL, color=NEON_BLUE)
+        current_y_col1 += line_height
+    
+    if pending_rewards > 0.00001: # Only show if substantial rewards
+        wallet_empty = False
+        draw_text(surface, f"  Pending DC Rewards: {pending_rewards:.4f}", col1_x + 10, current_y_col1, font=FONT_SMALL, color=GOLDEN_YELLOW) # Use GOLDEN_YELLOW for pending
+        current_y_col1 += line_height
+        
+    if wallet_empty and staked_amount == 0 and pending_rewards == 0 : # If truly nothing in crypto
+         draw_text(surface, "  None", col1_x + 10, current_y_col1, font=FONT_SMALL, color=MEDIUM_GREY); current_y_col1 += line_height
+
+
+    current_y_col1 += line_height # Add some spacing before next section
+    draw_text(surface, f"Ghost Network Access: {player_inventory_data.ghost_network_access} days", col1_x, current_y_col1, font=FONT_MEDIUM, color=TEXT_COLOR)
+    current_y_col1 += line_height
+    draw_text(surface, f"Secure Phone: {'Yes' if player_inventory_data.has_secure_phone else 'No'}", col1_x, current_y_col1, font=FONT_MEDIUM, color=TEXT_COLOR)
+
+    col2_x = SCREEN_WIDTH // 2 + 20
+    current_y_col2 = y_offset
+    draw_text(surface, "Live Crypto Prices:", col2_x, current_y_col2, font=FONT_MEDIUM, color=PLATINUM); current_y_col2 += line_height
+    if game_state_data.current_crypto_prices:
+        for coin, price in game_state_data.current_crypto_prices.items():
+             draw_text(surface, f"  {coin.value}: ${price:,.2f}", col2_x + 10, current_y_col2, font=FONT_SMALL, color=NEON_BLUE); current_y_col2 += line_height
+    else:
+        draw_text(surface, "  Prices unavailable.", col2_x + 10, current_y_col2, font=FONT_SMALL, color=MEDIUM_GREY); current_y_col2 += line_height
+    
+    return max(current_y_col1, current_y_col2) 
+
+def draw_tech_coin_select_view(
+    surface: pygame.Surface, 
+    tech_buttons: List[Button],
+    ui_state: Dict
+    ):
+    tech_transaction_in_progress = ui_state.get('tech_transaction_in_progress', "N/A")
+    action_label = tech_transaction_in_progress.replace("_", " ").title()
+    draw_text(surface, action_label, SCREEN_WIDTH // 2, 50, font=FONT_LARGE, color=YALE_BLUE, center_aligned=True)
+    draw_text(surface, "Choose a cryptocurrency for the transaction:", SCREEN_WIDTH // 2, 100, font=FONT_MEDIUM, color=PLATINUM, center_aligned=True)
+    
+    mouse_pos = pygame.mouse.get_pos()
+    for button in tech_buttons: 
+        button.draw(surface, mouse_pos)
+
+def draw_tech_amount_input_view(
+    surface: pygame.Surface, 
+    player_inventory_data: 'PlayerInventory', 
+    game_state_data: 'GameState', 
+    tech_buttons: List[Button],
+    ui_state: Dict
+    ):
+    tech_input_string = ui_state.get('tech_input_string', "")
+    active_prompt_message = ui_state.get('active_prompt_message')
+    prompt_message_timer = ui_state.get('prompt_message_timer', 0)
+    tech_transaction_in_progress = ui_state.get('tech_transaction_in_progress', "N/A")
+    coin_for_tech_transaction = ui_state.get('coin_for_tech_transaction') 
+    tech_input_box_rect = ui_state.get('tech_input_box_rect') 
+
+    action_verb = tech_transaction_in_progress.split('_')[0].capitalize()
+    coin_name = coin_for_tech_transaction.value.upper() if coin_for_tech_transaction else "Crypto"
+    title = f"{action_verb} {coin_name}"
+    draw_text(surface, title, SCREEN_WIDTH // 2, 50, font=FONT_LARGE, color=YALE_BLUE, center_aligned=True)
+    
+    info_y = 120
+    draw_text(surface, f"Your Cash: ${player_inventory_data.cash:,.2f}", SCREEN_WIDTH // 2, info_y, font=FONT_SMALL, color=TEXT_COLOR, center_aligned=True); info_y += 25
+    if coin_for_tech_transaction: 
+        balance = player_inventory_data.crypto_wallet.get(coin_for_tech_transaction, 0.0)
+        price = game_state_data.current_crypto_prices.get(coin_for_tech_transaction, 0)
+        draw_text(surface, f"Your {coin_name}: {balance:.4f} (${balance * price:,.2f})", SCREEN_WIDTH // 2, info_y, font=FONT_SMALL, color=TEXT_COLOR, center_aligned=True); info_y += 25
+        draw_text(surface, f"Current {coin_name} Price: ${price:,.2f}", SCREEN_WIDTH // 2, info_y, font=FONT_SMALL, color=TEXT_COLOR, center_aligned=True); info_y += 25
+    
+    prompt_text = "Enter amount..."
+    if "launder" in tech_transaction_in_progress: prompt_text = "Enter amount of cash to launder:"
+    elif "buy" in tech_transaction_in_progress and coin_for_tech_transaction: prompt_text = f"Enter amount of {coin_name} to buy:"
+    elif "sell" in tech_transaction_in_progress and coin_for_tech_transaction: prompt_text = f"Enter amount of {coin_name} to sell:"
+    elif "stake" in tech_transaction_in_progress and coin_for_tech_transaction: prompt_text = f"Enter amount of {coin_name} to stake:"
+    elif "unstake" in tech_transaction_in_progress and coin_for_tech_transaction: prompt_text = f"Enter amount of {coin_name} to unstake:"
+    draw_text(surface, prompt_text, SCREEN_WIDTH // 2, info_y, font=FONT_SMALL, color=PLATINUM, center_aligned=True, max_width=SCREEN_WIDTH-40); info_y += 40
+
+    if tech_input_box_rect:
+        current_input_box_rect = pygame.Rect(tech_input_box_rect) 
+        current_input_box_rect.top = info_y
+        draw_input_box(surface, current_input_box_rect, tech_input_string, FONT_MEDIUM, 
+                       TEXT_INPUT_TEXT_COLOR, TEXT_INPUT_BG_COLOR, TEXT_INPUT_BORDER_COLOR, 
+                       is_active=True, cursor_visible=True, cursor_pos=len(tech_input_string))
+        info_y += 60
+    
+    if active_prompt_message and prompt_message_timer > 0:
+        prompt_color = IMPERIAL_RED if "Error" in active_prompt_message or "Invalid" in active_prompt_message or "Not enough" in active_prompt_message else EMERALD_GREEN
+        draw_text(surface, active_prompt_message, SCREEN_WIDTH // 2, info_y, font=FONT_SMALL, color=prompt_color, center_aligned=True, max_width=SCREEN_WIDTH - 40)
+        
+    mouse_pos = pygame.mouse.get_pos()
+    for button in tech_buttons: 
+        button.draw(surface, mouse_pos)
+
+def draw_tech_contact_view(
+    surface: pygame.Surface, 
+    player_inventory_data: 'PlayerInventory', 
+    game_state_data: 'GameState', 
+    game_configs_data: 'GameConfigs', 
+    tech_buttons: List[Button], 
+    ui_state: Dict 
+    ):
+    
+    current_tech_view_state = ui_state.get('current_view', "tech_contact") 
+
+    if current_tech_view_state == "tech_input_coin_select":
+        draw_tech_coin_select_view(surface, tech_buttons, ui_state)
+    elif current_tech_view_state == "tech_input_amount":
+        draw_tech_amount_input_view(surface, player_inventory_data, game_state_data, tech_buttons, ui_state)
+    else: 
+        draw_text(surface, "Tech Contact", SCREEN_WIDTH // 2, 30, font=FONT_LARGE, color=YALE_BLUE, center_aligned=True)
+        _draw_tech_shared_info(surface, player_inventory_data, game_state_data)
+        active_prompt_message = ui_state.get('active_prompt_message')
+        prompt_message_timer = ui_state.get('prompt_message_timer', 0)
+        if active_prompt_message and prompt_message_timer > 0:
+            prompt_y = SCREEN_HEIGHT - 120 
+            prompt_color = IMPERIAL_RED if "Error" in active_prompt_message else EMERALD_GREEN
+            draw_text(surface, active_prompt_message, SCREEN_WIDTH // 2, prompt_y, font=FONT_SMALL, color=prompt_color, center_aligned=True, max_width=SCREEN_WIDTH - 40)
+        mouse_pos = pygame.mouse.get_pos()
+        for button in tech_buttons: 
+            button.draw(surface, mouse_pos)

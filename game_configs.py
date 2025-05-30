@@ -1,15 +1,30 @@
-from typing import Dict
+from typing import Dict, List
+from core.enums import CryptoCoin # Import CryptoCoin
 
 # Global game settings and constants
 
 # Player Defaults
 PLAYER_STARTING_CASH: float = 5000.0
-PLAYER_MAX_CAPACITY: int = 150
+PLAYER_MAX_CAPACITY: int = 150 # This is the base capacity
 
-# Upgrades
+# Upgrades Constants
 CAPACITY_UPGRADE_COST_INITIAL: float = 1000.0
-CAPACITY_UPGRADE_COST_MULTIPLIER: float = 1.5
-CAPACITY_UPGRADE_AMOUNT: int = 50
+# CAPACITY_UPGRADE_COST_MULTIPLIER: float = 1.5 # Not directly used if costs are explicit list
+CAPACITY_UPGRADE_AMOUNT: int = 50 # Base increment amount
+
+CAPACITY_LEVELS: List[int] = [
+    PLAYER_MAX_CAPACITY + CAPACITY_UPGRADE_AMOUNT,      # Level 1: 200
+    PLAYER_MAX_CAPACITY + (2 * CAPACITY_UPGRADE_AMOUNT), # Level 2: 250
+    PLAYER_MAX_CAPACITY + (3 * CAPACITY_UPGRADE_AMOUNT), # Level 3: 300
+    PLAYER_MAX_CAPACITY + (4 * CAPACITY_UPGRADE_AMOUNT)  # Level 4: 350
+]
+CAPACITY_COSTS: List[float] = [
+    CAPACITY_UPGRADE_COST_INITIAL, # Cost for Level 1
+    CAPACITY_UPGRADE_COST_INITIAL * 2.5,  # Cost for Level 2
+    CAPACITY_UPGRADE_COST_INITIAL * 5.0,  # Cost for Level 3
+    CAPACITY_UPGRADE_COST_INITIAL * 8.0   # Cost for Level 4
+]
+# Note: SECURE_PHONE_COST and SECURE_PHONE_HEAT_REDUCTION_PERCENT are defined further down under OpSec Upgrades
 
 # Debt Collector
 DEBT_PAYMENT_1_AMOUNT: float = 25000.0
@@ -31,17 +46,60 @@ HEAT_FROM_CRYPTO_TRANSACTION: int = 1
 # Skill System
 SKILL_POINTS_PER_X_DAYS: int = 7
 SKILL_MARKET_INTUITION_COST: int = 1
-SKILL_DIGITAL_FOOTPRINT_COST: int = 2 # New OpSec Skill
+SKILL_DIGITAL_FOOTPRINT_COST: int = 2 
+DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT: float = 0.25 # Moved and updated for SKILL_DEFINITIONS
+
+SKILL_DEFINITIONS = {
+    "MARKET_INTUITION": {
+        "name": "Market Intuition",
+        "cost": SKILL_MARKET_INTUITION_COST,
+        "description": "Shows market price trends for drugs."
+    },
+    "DIGITAL_FOOTPRINT": {
+        "name": "Digital Footprint",
+        "cost": SKILL_DIGITAL_FOOTPRINT_COST,
+        "description": f"Reduces heat from crypto transactions by {DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT*100:.0f}%."
+    }
+}
+
+UPGRADE_DEFINITIONS = {
+    "SECURE_PHONE": {
+        "name": "Secure Phone",
+        "cost": SECURE_PHONE_COST, # Defined under OpSec Upgrades section
+        "description": f"Reduces crypto heat by {SECURE_PHONE_HEAT_REDUCTION_PERCENT*100:.0f}%. Stacks with Digital Footprint."
+    },
+    "EXPANDED_CAPACITY": {
+        "name": "Expanded Capacity",
+        "costs": CAPACITY_COSTS, 
+        "capacity_levels": CAPACITY_LEVELS,
+        "description_template": "Increases inventory capacity to {next_capacity}. Cost: ${next_cost:,.0f}.", # Used by UI to format
+        "description_maxed": "Inventory capacity is fully upgraded."
+    }
+}
 
 # Informant System
-INFORMANT_TIP_COST: float = 50.0
+INFORMANT_TIP_COST_RUMOR: float = 50.0 # Renamed from INFORMANT_TIP_COST for clarity
+INFORMANT_TIP_COST_DRUG_INFO: float = 75.0 # New constant
+INFORMANT_TIP_COST_RIVAL_INFO: float = 100.0 # New constant
 INFORMANT_TRUST_GAIN_PER_TIP: int = 5
 INFORMANT_MAX_TRUST: int = 100
 
 # Cryptocurrency
-CRYPTO_PRICES_INITIAL: Dict[str, float] = {"DC": 100.0, "VC": 50.0, "SC": 1.0}
-CRYPTO_VOLATILITY: Dict[str, float] = {"DC": 0.05, "VC": 0.20, "SC": 0.005}
-CRYPTO_MIN_PRICE: Dict[str, float] = {"DC": 20.0, "VC": 5.0, "SC": 0.98}
+CRYPTO_PRICES_INITIAL: Dict[CryptoCoin, float] = {
+    CryptoCoin.DRUG_COIN: 100.0, 
+    CryptoCoin.VOLATILITY_COIN: 50.0, 
+    CryptoCoin.STABLE_COIN: 1.0
+}
+CRYPTO_VOLATILITY: Dict[CryptoCoin, float] = {
+    CryptoCoin.DRUG_COIN: 0.05, 
+    CryptoCoin.VOLATILITY_COIN: 0.20, 
+    CryptoCoin.STABLE_COIN: 0.005
+}
+CRYPTO_MIN_PRICE: Dict[CryptoCoin, float] = {
+    CryptoCoin.DRUG_COIN: 20.0, 
+    CryptoCoin.VOLATILITY_COIN: 5.0, 
+    CryptoCoin.STABLE_COIN: 0.98
+}
 DC_STAKING_DAILY_RETURN_PERCENT: float = 0.001
 
 # Tech Contact
@@ -84,7 +142,9 @@ SETUP_EVENT_STING_CHANCE_BASE: float = 0.60
 SETUP_EVENT_STING_CHANCE_HEAT_MODIFIER: float = 0.005
 
 # OpSec Upgrades (New)
-DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT: float = 0.50
-SECURE_PHONE_COST: float = 7500.0
-SECURE_PHONE_HEAT_REDUCTION_PERCENT: float = 0.50
-SKILL_PHONE_STACKING_HEAT_REDUCTION_PERCENT: float = 0.75
+# DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT was moved to Skill System section and value changed
+SECURE_PHONE_COST: float = 7500.0 # Used by UPGRADE_DEFINITIONS
+SECURE_PHONE_HEAT_REDUCTION_PERCENT: float = 0.15 # Used by UPGRADE_DEFINITIONS. Adjusted as per earlier plan, to be distinct
+SKILL_PHONE_STACKING_HEAT_REDUCTION_PERCENT: float = 0.75 # This is likely a combined/calculated effect, not directly put in a definition.
+
+TEST_CONSTANT: int = 123

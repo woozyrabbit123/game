@@ -1,15 +1,18 @@
 import random
-from typing import Dict
+from typing import Dict, List # Added List
+from core.enums import CryptoCoin # Import CryptoCoin
+from core.ai_rival import AIRival # Import AIRival
 
 # Initialize with placeholder values, will be properly set at game start
-current_crypto_prices: Dict[str, float] = {}
+current_crypto_prices: Dict[CryptoCoin, float] = {} # Use CryptoCoin as key type
+ai_rivals: List[AIRival] = [] # Initialize empty list of AI rivals
 
-def initialize_crypto_prices(initial_prices: Dict[str, float]):
+def initialize_crypto_prices(initial_prices: Dict[CryptoCoin, float]): # Use CryptoCoin as key type
     """Sets the initial prices for cryptocurrencies."""
     global current_crypto_prices
     current_crypto_prices = initial_prices.copy()
 
-def update_daily_crypto_prices(volatility_map: Dict[str, float], min_prices_map: Dict[str, float]):
+def update_daily_crypto_prices(volatility_map: Dict[CryptoCoin, float], min_prices_map: Dict[CryptoCoin, float]): # Use CryptoCoin
     """Updates cryptocurrency prices based on their volatility."""
     global current_crypto_prices
     if not current_crypto_prices: 
