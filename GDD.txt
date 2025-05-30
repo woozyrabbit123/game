@@ -1,0 +1,238 @@
+
+
+
+
+
+
+--- START OF CORRECTED AND FULLY DETAILED GDD.txt (Version 3.14) ---
+Game Design Outline: Project Narco-Syndicate (Version 3.14)
+(Working Title - User to select final title; alternatives: Global Hustle, Zero Sum Trader, BitCartel, Shadow Ledger)
+Core Concept & Elevator Pitch:
+Concept: An "Enhanced Drug Wars" for PC that blends classic buy-low, sell-high drug trading with modern strategic layers including a dynamic cryptocurrency market (staking, laundering), a rich event system (high-risk deals, rival busts), meaningful player progression (skills, upgrades for OpSec), impactful risk management, and contact-based services.
+Elevator Pitch: Rise from a small-time dealer burdened by debt to a criminal kingpin. Juggle drug trade risks with volatile crypto (stake DC, launder cash!), manage your heat with skills like "Digital Footprint" or a "Secure Phone", navigate contacts, rivals (who can get busted!), and law enforcement. Take on risky "Setup" deals. Access the exclusive Crypto-Only Shop. Every choice has a consequence. Gameplay depth over graphical fidelity.
+Platform & Genre:
+Platform: PC (Single-Player)
+Genre: Strategy, Simulation, Trading, Crime Syndicate Management
+2.5. Game Structure & Pacing
+A. Standard Campaign Length: 120 "Days" (Turns)
+B. Campaign Length Options (Replayability):
+Sprint Mode: 60 days.
+Standard Mode: 120 days.
+Marathon Mode: 180 days.
+C. Phased Progression (120-Day Standard):
+Phase 1: Survival & Foundation (Days 1-45) - "Learning the Streets"
+Primary Focus: Full debt repayment, mastery of basic drug trading, initial contact introductions, Tier 1 skills (including OpSec like "Digital Footprint").
+Key Activities: Regional exploration, heat management (Police Stops, jail, Corrupt Official, OpSec upgrades), crypto trading (DC, VC, SC), DC staking, basic money laundering. Observing rival activities and busts.
+Phase 2: Expansion & Diversification (Days 46-70) - "Building the Network"
+Primary Focus: Wider operations, contact trust, Tier 2 skills, advanced crypto strategies, utilizing Crypto-Only Shop.
+Key Activities: Accessing high-tier regions, major contact quests, deeper Crypto-Only Shop exploration.
+New Challenges Emerge: More organized police, elite AI rivals (who may return after being busted), market manipulation events, regional conflicts.
+Phase 3: Consolidation & Specialization (Days 71-100) - "Choosing Your Path"
+Primary Focus: Preparing for Legacy Scenarios, major operations, high-trust contacts, advanced equipment.
+Key Activities: Legacy prerequisites, committed legacy path pursuit.
+Escalating Opposition: Federal attention, AI rival coalitions, external market instability.
+Phase 4: Legacy & Mastery (Days 101-120+) - "Endgame Scenarios"
+Primary Focus: Achieving ambitious victory conditions.
+Key Activities: Extended legacy campaigns, managing max complexity, overcoming final obstacles.
+D. Dynamic Difficulty:
+AI rivals scale.
+Market complexity increases.
+Law enforcement tactics and intensity grow.
+E. Seasonal Events (Flavor & Minor Mechanical Impact):
+Days 30-35 (approx.): "Spring Cleaning".
+Days 60-65 (approx.): "Summer Heat".
+Days 90-95 (approx.): "Election Season".
+Days 115-120 (approx.): "Year End Audit".
+Player Objectives & Win Conditions:
+Primary Objective (Classic): Target net worth.
+Mid-Game Legacy Scenarios: "Regional Baron", "Crypto Whale", "The Cleaner".
+Main Legacy Scenarios: "The Cartel Crown", "Digital Empire", "Perfect Retirement".
+Loss Conditions: Bankruptcy, capture/game over, failure to meet debt payments.
+Prototype Status: Debt payment failures prototyped. Confiscation/jail prototyped.
+3.5. Tutorial & Onboarding
+Extended "Debt Collector" Arc (Days 1-45): Initial debt ($75,000 total, three payments).
+Debt Structure & Learning Gates:
+Payment 1: $25,000 (Day 15). (Prototyped)
+Payment 2: $30,000 (Day 30). Introduces dynamic crypto, DC staking, basic laundering. (Prototyped)
+Payment 3: $20,000 (Day 45). Marks end of tutorial debt. (Prototyped)
+Weekly Progression Focus (approximate):
+Week 1 (Days 1-7): Trading focus, heat management. Tech Contact & Corrupt Official available. Introduction to OpSec skills/upgrades.
+Week 2 (Days 8-14): Informant & Tech Contact interaction. Crypto trading/staking. "Rival Busted" events may start.
+Week 3 (Days 15-21): Risk Management; Payment 1 deadline. Market Intuition skill.
+Week 4 (Days 22-28): Advanced Systems Preview. Payment 2 looms.
+Week 5 (Days 29-35): Integration Mastery. Prepare for Payment 2.
+Weeks 6-7 (Days 36-45): Independence Preparation. Final Payment 3.
+Information Delivery: Contextual pop-ups, contact advice, Debt Collector objectives. Enhanced daily status header.
+Core Gameplay Loop:
+Plan: Review markets, heat, events (Setup offers, Rival Busts), cash, objectives, skills (OpSec status), trust, crypto balances.
+Travel: Move between regions. Risk of "Police Stop".
+Act:
+Buy/Sell Drugs.
+Engage with Crypto Market (Buy/Sell/Hold/Stake DC, VC, SC via Tech Contact; Launder Cash to SC - heat affected by OpSec).
+Interact with Contacts.
+Manage Upgrades (Secure Phone) & Skills (Digital Footprint).
+Access Crypto-Only Shop.
+Respond to Events.
+Risk Assessment: Monitor heat, use Corrupt Official, benefit from OpSec.
+End Turn/Advance Time: Risk of "Police Stop". Events trigger/expire (Rival returns from bust), markets update, AI rivals move (if not busted), resources update, heat decays, skill points awarded.
+Repeat.
+Prototype Status: Core loop prototyped. OpSec skill/upgrade affect crypto heat. Rival bust mechanics affect their market presence.
+Key Features:
+5.1. Map & Navigation:
+Stylized world map with 8-9 regions. Travel consumes time, may trigger events/costs. Risk of "Police Stop".
+Prototype Status: 3 regions prototyped. Police Stop check before travel.
+5.2. Drug Economy:
+Drug Tiers (4 Tiers): Varying profit, availability, heat.
+Prototype Status: Prototyped.
+Drug Quality System: (CUT, STANDARD, PURE) affects price, risk.
+Prototype Status: Prototyped.
+Regional Market Data Structure: Stores drug details including tier and previous_buy/sell_price.
+Prototype Status: Prototyped.
+Dynamic Prices: Influenced by region, events, player/AI actions, heat.
+Prototype Status: Prototyped.
+Player Market Impact: Buying/selling affects local drug prices.
+Prototype Status: Prototyped.
+AI Rival Market Impact: Rivals influence drug prices. Rivals can be temporarily removed from market activity if "Busted".
+Prototype Status: Prototyped. AI Rivals have an is_busted state.
+Inventory Management: Limited capacity, upgradable. Items can be confiscated. Includes crypto wallet, staked DC, pending laundered SC, and Secure Phone status.
+Prototype Status: See Section 5.5.
+5.3. Cryptocurrency System (Menu-Driven):
+Access: Tech Contact (primary), planned: Internet Cafes, Secure Phone (now a purchasable upgrade that reduces crypto heat).
+Fictional Cryptocurrencies (3 Types): DC, VC, SC.
+Prototype Status: All three tradable with dynamic prices.
+Trading: Via Tech Contact. Prices update daily. Transactions incur a fee and generate regional heat (reducible by OpSec skill/Secure Phone).
+Prototype Status: Prototyped.
+Staking: DarkCoin (DC) can be staked for daily passive returns.
+Prototype Status: Implemented.
+Money Laundering: Convert cash to SC via Tech Contact with fee, delay, and heat generation (reducible by OpSec).
+Prototype Status: Implemented.
+Uses, Risks, Rewards (as before).
+Interface: Portfolio (inventory summary), exchange (Tech Contact menu).
+Crypto-Only Shop ("Ghost Network"):
+"Ghost Network Access" (Prototyped)
+"Digital Arsenal" (Prototyped)
+Other items planned.
+Prototype Status: Dynamic pricing for DC, VC, SC. Trading/Laundering via Tech Contact (fees, reducible heat). DC Staking. Crypto-Only Shop access and "Digital Arsenal" item prototyped.
+5.4. Event System:
+Dynamic events. MarketEvent class updated for "The Setup" and "Rival Busted".
+Types:
+Risk Events: "Police Stop" (Prototyped), "The Setup" (Prototyped). Others planned.
+Opportunity Events: "Cheap Stash" (Prototyped). Others planned.
+Market Events: "Demand Spike", "Supply Chain Disruption", "Police Crackdown" (Prototyped).
+Ecosystem Events:
+"Rival Busted": An AI Rival is temporarily removed from play (stops market activity). Player is notified. Rival returns after a set duration.
+Prototype Status: Implemented. AI Rivals have is_busted and busted_days_remaining state. Event triggers bust, daily update handles return. Informant can report on busted rivals.
+"Turf Wars" (Planned).
+trigger_random_market_event handles weighted choices for market events, "The Setup", and "Rival Busted".
+Contact-Driven Events, Information/Rumors, Flavor & World-Building Events. (Planned)
+Prototype Status: "Police Stop", "The Setup", "Rival Busted", "Demand Spike", "Supply Chain Disruption", "Police Crackdown", "Cheap Stash" prototyped.
+5.5. Player Progression:
+Player Attributes: cash, skill_points, informant_trust, crypto_wallet, staked_dc, pending_laundered_sc, pending_laundered_sc_arrival_day, has_secure_phone. (All Prototyped)
+Player Inventory System: Drug inventory, crypto wallet, staked DC, pending laundered SC, Secure Phone status. unlocked_skills tracks skills and special item ownership.
+Prototype Status: PlayerInventory class fully prototyped.
+Skills (Menu-Selected Upgrades - Tiered Perks):
+Street Smarts: Tier 1: Market Intuition (Prototyped). Tiers 2-3 planned.
+Network: (All Tiers Planned)
+Operational Security (OpSec):
+Tier 1: Digital Footprint - Reduced heat from crypto transactions by DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT. Stacks with Secure Phone.
+Prototype Status: Implemented. Purchasable with SP. Reduces heat from crypto buy/sell/launder.
+Tier 2: Compartmentalization (Planned)
+Tier 3: Ghost Protocol (Planned)
+Prototype Status: Basic skill system. "Market Intuition" and "Digital Footprint" prototyped.
+Upgrades (Purchasable):
+Increased carrying capacity. (Prototyped)
+Secure Phone: Reduces heat from crypto transactions by SECURE_PHONE_HEAT_REDUCTION_PERCENT. Stacks with "Digital Footprint" skill for a combined SKILL_PHONE_STACKING_HEAT_REDUCTION_PERCENT reduction. Costs SECURE_PHONE_COST.
+Prototype Status: Purchasable. PlayerInventory.has_secure_phone tracks ownership. Heat reduction logic implemented in Tech Contact handler.
+Faster travel, Safehouses, Crypto-Only Shop Items. (Planned)
+(Capacity upgrade and Secure Phone prototyped)
+5.6. Risk Management:
+Heat System: Generated by player actions, events. Higher heat increases risks, affects drug prices/stock. Crypto transaction heat reducible by OpSec skill/upgrade.
+Prototype Status: Heat system with player-generated heat and impacts prototyped. Crypto heat reduction implemented.
+Police & Jail: "Police Stop" / "The Setup" sting can lead to confiscation or jail time.
+Prototype Status: Prototyped.
+Rival AI: Influence markets. Can be "Busted" (temporarily inactive), affecting their market impact.
+Prototype Status: AI Rivals influence drug markets. Bust mechanic implemented, removing them from market activity.
+(Heat system, Police Stop/Jail, and Rival Bust mechanics significantly enhanced.)
+5.7. NPCs & Contacts (with Trust Levels & Quests):
+General Mechanic: Trust Levels, quests.
+The Debt Collector: Drives initial plot.
+Prototype Status: All 3 payments prototyped.
+Informant Network: Provides tips for cash, builds trust. Can now report on Busted Rivals.
+Prototype Status: Basic Informant contact implemented with Rival Busted tips.
+Corrupt Official: Offers services to reduce regional heat for a bribe.
+Prototype Status: Basic service implemented.
+Tech Contact: Facilitates cryptocurrency trading/staking/laundering. Transactions have fees and generate heat (reducible by OpSec). Offers "Ghost Network Access".
+Prototype Status: Implemented.
+Specialized Contact: The Forger: (Planned)
+Specialized Contact: The Logistics Expert: (Planned)
+(Debt Collector, Low Trust Informant (with rival bust tips), Tech Contact, and basic Corrupt Official prototyped)
+5.8. Early Game Hook ("The Debt Collector"):
+Player starts with debt ($75,000 total, three payments).
+Prototype Status: All three payments prototyped.
+Use code with caution.
+User Interface (UI) Philosophy:
+Primary Goal: Functional, clear, intuitive.
+Style: Menu-driven, enhanced text formatting.
+Development: AI-assisted.
+Prototype Status: Basic text-based UI. Supports:
+Formatted daily status header.
+Dynamic main action menu.
+Market view.
+Inventory view (includes Secure Phone status).
+Buy/sell drug actions.
+"Visit Tech Contact" menu.
+"Crypto-Only Shop" menu.
+"Meet Local Contact" menu.
+"Respond to Opportunities" menu.
+Travel, Informant, Upgrades (Secure Phone), Skills (Digital Footprint) menus.
+"Police Stop" event interaction.
+Art & Sound Philosophy:
+Art: Gameplay first.
+Sound: Not a priority.
+Monetization:
+Single premium purchase.
+Key Balancing Considerations:
+Drug trading vs. crypto income.
+Crypto strategies.
+Risk vs. Reward ("The Setup", heat management).
+Progression speed.
+Campaign length adjustments.
+Player market impact.
+Drug quality trade-offs.
+Event parameters (including "Rival Busted" duration/impact).
+Informant costs/benefits.
+Upgrade costs/benefits (Secure Phone effectiveness).
+Heat system balance: Player-generated heat vs. decay/reduction. Effectiveness of "Digital Footprint" and "Secure Phone" (individually and stacked) on crypto heat.
+Debt payment difficulty.
+Cryptocurrency balancing.
+Corrupt Official balancing.
+Development Methodology & AI Collaboration:
+10.1. Guiding Principle: AI-assisted development.
+10.2. Prompt Engineering Excellence.
+10.3. Safe and Secure Code Generation.
+10.4. Iterative Development and Refinement.
+10.5. Agent-Specific Considerations.
+10.6. GDD as Primary Source of Truth.
+10.7. Project Structure: Modular Python structure.
+Prototype Status: Modular structure implemented.
+Project Progress Summary (as of Version 3.14)
+Python prototypes exist for:
+Core Data Structures: AIRival now has is_busted state. PlayerInventory tracks has_secure_phone.
+Global Game State Management (game_state.py).
+Regional Market System (Drugs).
+Player State & Inventory: Includes Secure Phone status.
+Text-Based Game Loop & UI.
+Economy & Early Game Hook: Debt Collector arc fully implemented.
+Event System:
+Market Events: "Demand Spike", "Supply Chain Disruption", "Police Crackdown", "Cheap Stash".
+Risk Events: "Police Stop" (with jail time), "The Setup".
+Ecosystem Event: "Rival Busted" implemented, AI rivals can be temporarily removed from play.
+Market Impact Systems (Drugs): AI Rivals' impact is now conditional on their is_busted status.
+Regional Heat System (Enhanced): Player-generated heat. Crypto transaction heat now reducible.
+Skill System (Expanded): "Market Intuition" and "Digital Footprint" (OpSec Tier 1 for crypto heat reduction) prototyped.
+Contact System (Expanded): Informant (rival bust tips), Tech Contact, Corrupt Official.
+Cryptocurrency System (Expanded): DC, VC, SC trading. DC Staking. Money Laundering. Heat from crypto trades now reducible by new OpSec skill/upgrade.
+Upgrades (Expanded): Purchasable "Secure Phone" to reduce crypto transaction heat.
+Modular Project Code Structure.
+Game Configuration: Constants for new OpSec skill/upgrade and their effects.
+--- END OF CORRECTED AND FULLY DETAILED GDD.txt (Version 3.14) ---

@@ -1,0 +1,239 @@
+/* narco_style.tcss */
+Screen {
+    background: $primary-background;
+    layout: vertical;
+}
+
+Header {
+    dock: top;
+    background: $primary;
+    color: $text;
+}
+
+Footer {
+    dock: bottom;
+    background: $primary;
+    color: $text;
+    height: 1;
+}
+
+StatusBar {
+    dock: top; /* Will be docked top within its parent container */
+    width: 100%;
+    background: $secondary-background;
+    color: $text;
+    padding: 0 1;
+    height: 1;
+}
+
+MainMenu {
+    dock: left;
+    width: 25; /* Adjust width as needed */
+    background: $primary-background-darken-1;
+    padding: 1;
+    border-right: solid $primary-darken-2;
+}
+
+MainMenu Button {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+#content_column {
+    width: 1fr; /* Takes remaining space */
+    height: 100%;
+    layout: vertical;
+}
+
+/* Renamed from #main_content_scroll to #main_content_area */
+#main_content_area {
+    width: 100%;
+    height: 1fr; /* Takes remaining space in content_column */
+    background: $surface;
+    /* border: round $primary-darken-2; Optional, DataTable might have its own */
+}
+
+#main_content_text {
+    padding: 1;
+    width: 100%;
+}
+
+/* Styling for MarketView and its DataTable */
+MarketView {
+    width: 100%;
+    height: 100%; /* Fill the parent ScrollableContainer */
+    /* padding: 1; DataTable might handle its own padding/spacing */
+}
+
+MarketView DataTable {
+    width: 100%;
+    /* height: auto; /* Let the table grow with content, ScrollableContainer handles scroll */
+    /* margin-top: 1; /* Optional spacing */
+}
+
+/* Styling for InventoryView and its DataTable */
+InventoryView {
+    width: 100%;
+    height: 100%; /* Fill the parent ScrollableContainer */
+}
+
+InventoryView DataTable {
+    width: 100%;
+    margin-top: 1; /* Optional spacing below the summary header */
+}
+
+#inventory_summary_header {
+    width: 100%;
+    padding: 1;
+    background: $primary-background-darken-1; /* Slightly different background */
+    color: $text;
+    text-style: bold;
+}
+
+/* Styling for the Log widget */
+.log_area {
+    height: 5; /* Fixed height for the log area */
+    border: round $primary-darken-1;
+    margin-top: 1;
+    padding: 1;
+    background: $primary-background-lighten-1;
+}
+
+/* Styling for TravelView */
+TravelView {
+    padding: 1 2; /* Add some padding around the TravelView content */
+}
+
+TravelView Label {
+    margin-bottom: 1;
+    text-style: bold;
+}
+
+TravelView Button {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+/* Styling for SkillsView */
+SkillsView {
+    padding: 1 2;
+}
+
+SkillsView Label {
+    margin-bottom: 1;
+    text-style: bold;
+    color: $text-muted; /* Different color for the main label */
+}
+
+SkillsView .skill_container {
+    border: round $primary-darken-1;
+    background: $primary-background-darken-1;
+    padding: 1;
+    margin-bottom: 1;
+}
+
+SkillsView .skill_name {
+    text-style: bold;
+    color: $secondary;
+}
+
+SkillsView .skill_status {
+    color: $success;
+    text-style: bold;
+    margin-top: 1;
+}
+
+SkillsView Button {
+    width: auto; /* Let button size itself */
+    margin-top: 1;
+}
+
+SkillsView Button:disabled {
+    background: $primary-darken-2;
+    color: $text-disabled;
+}
+
+/* Styling for UpgradesView */
+UpgradesView {
+    padding: 1 2;
+}
+
+UpgradesView Label {
+    margin-bottom: 1;
+    text-style: bold;
+    color: $text-muted;
+}
+
+UpgradesView .upgrade_container {
+    border: round $primary-darken-1;
+    background: $primary-background-darken-1;
+    padding: 1;
+    margin-bottom: 1;
+}
+
+UpgradesView .upgrade_name {
+    text-style: bold;
+    color: $secondary;
+}
+
+UpgradesView .upgrade_status {
+    color: $success;
+    text-style: bold;
+    margin-top: 1;
+}
+
+UpgradesView Button {
+    width: auto; /* Let button size itself */
+    margin-top: 1;
+}
+
+UpgradesView Button:disabled {
+    background: $primary-darken-2;
+    color: $text-disabled;
+}
+
+/* Styling for TechContactView */
+TechContactView {
+    padding: 1 2;
+}
+
+TechContactView > Vertical > Label {
+    margin-bottom: 1;
+    text-style: bold;
+    color: $text-muted;
+}
+
+TechContactView Button {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+TechContactView Static {
+    margin-bottom: 1;
+    padding: 1 0;
+}
+
+TechContactView .warning {
+    color: $warning;
+    background: $warning-background-lighten-2;
+    padding: 1;
+    border: round $warning;
+}
+
+TechContactView .success {
+    color: $success;
+    text-style: bold;
+    margin-top: 1;
+}
+
+/* Optional: Style for table headers if needed */
+/* DataTableHeader {
+    background: $primary-background-darken-1;
+    color: $text-muted;
+    text-style: bold;
+}*/
+
+/* Optional: Style for table rows */
+/* DataTableRow {
+    padding: 0 1;
+}*/
