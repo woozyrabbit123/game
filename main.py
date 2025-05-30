@@ -2,32 +2,42 @@ import random
 from typing import List, Dict 
 import curses
 import curses.textpad
+import sys
+from pathlib import Path
 
-from game_configs import (PLAYER_STARTING_CASH, PLAYER_MAX_CAPACITY, 
-                          DEBT_PAYMENT_1_AMOUNT, DEBT_PAYMENT_1_DUE_DAY,
-                          DEBT_PAYMENT_2_AMOUNT, DEBT_PAYMENT_2_DUE_DAY,
-                          DEBT_PAYMENT_3_AMOUNT, DEBT_PAYMENT_3_DUE_DAY,
-                          CRYPTO_PRICES_INITIAL, CRYPTO_VOLATILITY, CRYPTO_MIN_PRICE,
-                          DIGITAL_ARSENAL_WARNING_HEAT_THRESHOLD)
+# Add project root to Python path
+project_root = Path(__file__).parent.absolute()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-from core.enums import DrugQuality
-from core.player_inventory import PlayerInventory
-from core.region import Region
-from core.ai_rival import AIRival
-from core.market_event import MarketEvent 
+from src.game_configs import (
+    PLAYER_STARTING_CASH, PLAYER_MAX_CAPACITY, 
+    DEBT_PAYMENT_1_AMOUNT, DEBT_PAYMENT_1_DUE_DAY,
+    DEBT_PAYMENT_2_AMOUNT, DEBT_PAYMENT_2_DUE_DAY,
+    DEBT_PAYMENT_3_AMOUNT, DEBT_PAYMENT_3_DUE_DAY,
+    CRYPTO_PRICES_INITIAL, CRYPTO_VOLATILITY, CRYPTO_MIN_PRICE,
+    DIGITAL_ARSENAL_WARNING_HEAT_THRESHOLD
+)
 
-from mechanics.event_manager import update_active_events, trigger_random_market_event 
+from src.core.enums import DrugQuality, DrugName, RegionName, CryptoCoin
+from src.core.player_inventory import PlayerInventory
+from src.core.region import Region
+from src.core.ai_rival import AIRival
+from src.core.market_event import MarketEvent
+from src.game_state import initialize_game_state, get_game_state
 
-from ui.text_ui_handlers import (handle_view_market, handle_view_inventory,
-                                 handle_buy_drug, handle_sell_drug, handle_advance_day,
-                                 handle_travel, handle_talk_to_informant, 
-                                 handle_view_upgrades, handle_view_skills,
-                                 handle_visit_tech_contact, handle_crypto_shop, 
-                                 handle_meet_corrupt_official, 
-                                 handle_respond_to_setup,
-                                 check_and_trigger_police_stop) 
-from ui.ui_helpers import display_daily_status_header
-import game_state
+from src.mechanics.event_manager import update_active_events, trigger_random_market_event
+from src.ui_textual.components.text_ui_handlers import (
+    handle_view_market, handle_view_inventory,
+    handle_travel, handle_view_tech_contact, handle_skills_view,
+    handle_upgrades_view, handle_blocking_event_popup_view,
+    handle_game_over_view, handle_informant_view,
+    handle_buy_drug, handle_sell_drug, handle_advance_day,
+    handle_view_skills, handle_view_upgrades,
+    handle_talk_to_informant, handle_meet_corrupt_official
+)
+from src.ui_textual.components.ui_helpers import display_daily_status_header
+import src.game_state as game_state
 
 
 def main_curses_app(stdscr):
