@@ -50,6 +50,20 @@ DEBT_PAYMENT_3_DUE_DAY: int = 45
 
 # Event Chances
 EVENT_TRIGGER_CHANCE: float = 0.20
+MUGGING_EVENT_CHANCE: float = 0.10
+
+# Black Market Event
+BLACK_MARKET_CHANCE: float = 0.04
+BLACK_MARKET_PRICE_REDUCTION_PERCENT: float = 0.50  # Player buys at 50% of normal price
+BLACK_MARKET_EVENT_DURATION_DAYS: int = 1
+BLACK_MARKET_MIN_QUANTITY: int = 20
+BLACK_MARKET_MAX_QUANTITY: int = 50
+
+# Forced Fire Sale Event
+FORCED_FIRE_SALE_CHANCE: float = 0.02
+FORCED_FIRE_SALE_QUANTITY_PERCENT: float = 0.15  # Percentage of a single drug stash to be sold
+FORCED_FIRE_SALE_PRICE_PENALTY_PERCENT: float = 0.30  # Price is 30% lower than normal sell price
+FORCED_FIRE_SALE_MIN_CASH_GAIN: float = 50.0 # Minimum cash player gets from the sale
 
 # Market Events
 DRUG_CRASH_EVENT_CHANCE: float = 0.05
@@ -78,7 +92,8 @@ SKILL_COMPARTMENTALIZATION_COST: int = 3
 COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT: float = 0.10
 SKILL_GHOST_PROTOCOL_COST: int = 5
 GHOST_PROTOCOL_DECAY_BOOST_PERCENT: float = 0.15
-SKILL_DIGITAL_FOOTPRINT_COST: int = 2 
+SKILL_DIGITAL_FOOTPRINT_COST: int = 2
+SKILL_MARKET_ANALYST_COST: int = 2
 DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT: float = 0.25
 SKILL_PHONE_STACKING_HEAT_REDUCTION_PERCENT: float = 0.25 # Additional reduction when both phone and skill are active
 
@@ -102,6 +117,11 @@ SKILL_DEFINITIONS = {
         "name": "Ghost Protocol",
         "cost": SKILL_GHOST_PROTOCOL_COST,
         "description": f"Increases daily heat decay rate by {GHOST_PROTOCOL_DECAY_BOOST_PERCENT*100:.0f}%."
+    },
+    "MARKET_ANALYST": {
+        "name": "Market Analyst",
+        "cost": SKILL_MARKET_ANALYST_COST,
+        "description": "Shows if a drug's price has increased, decreased, or stayed stable since yesterday."
     }
 }
 
@@ -113,7 +133,7 @@ UPGRADE_DEFINITIONS = {
     },
     "EXPANDED_CAPACITY": {
         "name": "Expanded Capacity",
-        "costs": CAPACITY_COSTS, 
+        "costs": CAPACITY_COSTS,
         "capacity_levels": CAPACITY_LEVELS,
         "description_template": "Increases inventory capacity to {next_capacity}. Cost: ${next_cost:,.0f}.",
         "description_maxed": "Inventory capacity is fully upgraded."
@@ -126,24 +146,27 @@ INFORMANT_TIP_COST_DRUG_INFO: float = 75.0
 INFORMANT_TIP_COST_RIVAL_INFO: float = 100.0
 INFORMANT_TRUST_GAIN_PER_TIP: int = 5
 INFORMANT_MAX_TRUST: int = 100
+INFORMANT_BETRAYAL_CHANCE: float = 0.03
+INFORMANT_TRUST_THRESHOLD_FOR_BETRAYAL: int = 20  # Trust must be <= this for betrayal
+INFORMANT_BETRAYAL_UNAVAILABLE_DAYS: int = 7 # Cooldown after a betrayal event
 
 # Cryptocurrency
 CRYPTO_PRICES_INITIAL: Dict[CryptoCoin, float] = {
-    CryptoCoin.BITCOIN: 100.0, 
-    CryptoCoin.ETHEREUM: 50.0, 
+    CryptoCoin.BITCOIN: 100.0,
+    CryptoCoin.ETHEREUM: 50.0,
     CryptoCoin.MONERO: 75.0,
     CryptoCoin.ZCASH: 25.0
 }
 
 CRYPTO_VOLATILITY: Dict[CryptoCoin, float] = {
-    CryptoCoin.BITCOIN: 0.05, 
+    CryptoCoin.BITCOIN: 0.05,
     CryptoCoin.ETHEREUM: 0.08,
     CryptoCoin.MONERO: 0.10,
     CryptoCoin.ZCASH: 0.15
 }
 
 CRYPTO_MIN_PRICE: Dict[CryptoCoin, float] = {
-    CryptoCoin.BITCOIN: 20.0, 
+    CryptoCoin.BITCOIN: 20.0,
     CryptoCoin.ETHEREUM: 10.0,
     CryptoCoin.MONERO: 15.0,
     CryptoCoin.ZCASH: 5.0

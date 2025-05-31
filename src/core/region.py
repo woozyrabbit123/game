@@ -1,10 +1,11 @@
 import random
+import math
 from typing import Dict, List, Optional
 
-from .enums import DrugQuality, DrugName # Added DrugName
+from .enums import DrugQuality, DrugName
 from .drug import Drug
 from .market_event import MarketEvent
-from ..game_configs import (HEAT_PRICE_INCREASE_THRESHOLDS, 
+from ..game_configs import (HEAT_PRICE_INCREASE_THRESHOLDS,
                          HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3)
 
 
@@ -69,6 +70,7 @@ class Region:
         player_mod = drug_data_market["player_buy_impact_modifier"]; rival_mod = drug_data_market["rival_demand_modifier"]
         price_before_event_and_heat = base_price * quality_mult * player_mod * rival_mod
         
+        # MARKET ANALYST skill requires previous price tracking
         current_previous_buy = drug_data_quality.get("previous_buy_price")
         if current_previous_buy is None or abs(current_previous_buy - price_before_event_and_heat) > 1e-2 : # Update if None or changed
             drug_data_quality["previous_buy_price"] = price_before_event_and_heat
@@ -76,11 +78,22 @@ class Region:
         heat_multiplier = self._get_heat_price_multiplier()
         calculated_price = price_before_event_and_heat * heat_multiplier
 
+        # Combined Price Modifiers: Black Market Opportunity (highest precedence), then Drug Market Crash, then other general events
+        
+        # Priority 1: Black Market Opportunity (Jules 1)
+        for event in self.active_market_events:
+            if event.event_type == "BLACK_MARKET_OPPORTUNITY" and \
+               event.target_drug_name == drug_name and \
+               event.target_quality == quality and \
+               getattr(event, 'black_market_quantity_available', 0) > 0 and \
+               event.duration_remaining_days > 0:
+                # Apply black market discount and return immediately
+                return round(max(0, calculated_price * event.buy_price_multiplier), 2)
+
+        # Priority 2: Drug Market Crash (Jules 2)
         crash_event_applied = False
-        # Check for DRUG_MARKET_CRASH first
         for event in self.active_market_events:
             if event.event_type == "DRUG_MARKET_CRASH":
-                # Ensure target_drug_name is not None and has a 'value' attribute (like an enum)
                 if hasattr(event.target_drug_name, 'value') and \
                    event.target_drug_name.value == drug_name and \
                    event.target_quality == quality and \
@@ -92,8 +105,8 @@ class Region:
                     crash_event_applied = True
                     break # Crash event handled and takes precedence
 
-        if not crash_event_applied:
-            # Apply other general event multipliers if no crash event for this specific drug/quality
+        # Priority 3: Other general event multipliers (DEMAND_SPIKE, CHEAP_STASH)
+        if not crash_event_applied: # Only apply if no DRUG_MARKET_CRASH took precedence
             for event in self.active_market_events:
                 matches_drug = False
                 if hasattr(event.target_drug_name, 'value'): # Enum check
@@ -104,11 +117,10 @@ class Region:
                         matches_drug = True
 
                 if matches_drug and event.target_quality == quality:
-                    # Apply general buy_price_multiplier from other event types
                     if event.buy_price_multiplier != 1.0:
                         calculated_price *= event.buy_price_multiplier
-                    # Assuming one relevant non-crash event, or first one found applies.
-                    break
+                    break # Assuming one relevant non-crash event, or first one found applies.
+
         return round(max(0, calculated_price), 2)
 
     def get_sell_price(self, drug_name: str, quality: DrugQuality) -> float:
@@ -120,12 +132,13 @@ class Region:
         player_mod = drug_data_market["player_sell_impact_modifier"]; rival_mod = drug_data_market["rival_supply_modifier"]
         calculated_price = base_price * quality_mult * player_mod * rival_mod
         
+        # MARKET ANALYST skill requires previous price tracking
         current_previous_sell = drug_data_quality.get("previous_sell_price")
         if current_previous_sell is None or abs(current_previous_sell - calculated_price) > 1e-2:
             drug_data_quality["previous_sell_price"] = calculated_price
 
+        # Drug Market Crash (Jules 2) is the only specific event for sell price here
         crash_event_applied = False
-        # Check for DRUG_MARKET_CRASH first
         for event in self.active_market_events:
             if event.event_type == "DRUG_MARKET_CRASH":
                 if hasattr(event.target_drug_name, 'value') and \
@@ -139,8 +152,8 @@ class Region:
                     crash_event_applied = True
                     break # Crash event handled and takes precedence
 
+        # Apply other general event multipliers if no crash event for this specific drug/quality
         if not crash_event_applied:
-            # Apply other general event multipliers if no crash event for this specific drug/quality
             for event in self.active_market_events:
                 matches_drug = False
                 if hasattr(event.target_drug_name, 'value'): # Enum check
@@ -151,22 +164,31 @@ class Region:
                         matches_drug = True
 
                 if matches_drug and event.target_quality == quality:
-                    # Apply general sell_price_multiplier from other event types
                     if event.sell_price_multiplier != 1.0:
                         calculated_price *= event.sell_price_multiplier
-                    # Assuming one relevant non-crash event, or first one found applies.
-                    break
+                    break # Assuming one relevant non-crash event, or first one found applies.
         return round(max(0, calculated_price), 2)
 
-    def get_available_stock(self, drug_name: str, quality: DrugQuality) -> int:
+    def get_available_stock(self, drug_name: str, quality: DrugQuality, player_heat: int) -> int:
         if (drug_name not in self.drug_market_data or
             quality not in self.drug_market_data[drug_name]["available_qualities"]):
             return 0
 
-        # Base stock after restock_market (which includes heat effects and CHEAP_STASH)
         base_stock = self.drug_market_data[drug_name]["available_qualities"][quality]["quantity_available"]
+        modified_stock = base_stock
+        drug_tier = self.drug_market_data[drug_name].get("tier")
 
-        # Apply SUPPLY_CHAIN_DISRUPTION if active
+        # Apply Heat-Based Stock Reduction (Jules 1)
+        if drug_tier in [2, 3]:
+            reduction_multiplier = 1.0 # Default if no threshold met
+            for threshold, multiplier in sorted(HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3.items(), reverse=True):
+                if player_heat >= threshold:
+                    reduction_multiplier = multiplier
+                    break
+            modified_stock = math.floor(modified_stock * reduction_multiplier)
+            modified_stock = max(0, modified_stock) # Ensure stock doesn't go below zero
+
+        # Apply SUPPLY_CHAIN_DISRUPTION if active (Jules 2)
         for event in self.active_market_events:
             if event.event_type == "SUPPLY_CHAIN_DISRUPTION" and \
                event.target_drug_name == drug_name and \
@@ -174,13 +196,15 @@ class Region:
                hasattr(event, 'stock_reduction_factor') and event.stock_reduction_factor is not None and \
                hasattr(event, 'min_stock_after_event') and event.min_stock_after_event is not None:
 
-                # Apply the reduction factor
-                modified_stock = int(base_stock * event.stock_reduction_factor)
+                # Apply the reduction factor to the already modified_stock
+                modified_stock = int(modified_stock * event.stock_reduction_factor)
                 # Ensure stock does not go below the event's specified minimum
-                final_stock = max(modified_stock, event.min_stock_after_event)
-                return final_stock # Event applies, return modified stock
+                modified_stock = max(modified_stock, event.min_stock_after_event)
+                # Note: No 'return' here, as other stock modifiers (like heat) could apply before this.
+                # The previous 'return final_stock' was only valid if Supply Chain Disruption was the *only* modifier.
 
-        return base_stock # No relevant supply disruption event, return base stock
+        return modified_stock
+
 
     def update_stock_on_buy(self, drug_name: str, quality: DrugQuality, quantity_bought: int):
         if (drug_name not in self.drug_market_data or quality not in self.drug_market_data[drug_name]["available_qualities"]): return
@@ -196,7 +220,11 @@ class Region:
                     if quality_enum_member == DrugQuality.PURE: current_stock = random.randint(10, 100)
                     elif quality_enum_member == DrugQuality.STANDARD: current_stock = random.randint(20, 200)
                     else: current_stock = random.randint(30, 300)
-                if tier > 1: current_stock = int(current_stock * self._get_heat_stock_reduction_factor())
+                # NOTE: The heat stock reduction in restock_market applied here was a previous implementation.
+                # The new approach for heat stock reduction is now within get_available_stock,
+                # ensuring it applies dynamically based on player_heat when stock is queried.
+                # This old line can likely be removed or commented out after testing the new system.
+                # if tier > 1: current_stock = int(current_stock * self._get_heat_stock_reduction_factor())
 
                 # Apply CHEAP_STASH if active - this adds to the heat-adjusted base stock
                 for event in self.active_market_events:
