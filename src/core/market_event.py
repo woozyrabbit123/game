@@ -11,10 +11,15 @@ class MarketEvent:
                  deal_drug_name: Optional[str] = None, deal_quality: Optional[DrugQuality] = None,
                  deal_quantity: Optional[int] = None, deal_price_per_unit: Optional[float] = None,
                  is_buy_deal: bool = True,
+                 # Fields for Supply Chain Disruption / Drug Market Crash
+                 price_reduction_factor: Optional[float] = None,
+                 minimum_price_after_crash: Optional[float] = None,
+                 stock_reduction_factor: Optional[float] = None,
+                 min_stock_after_event: Optional[int] = None,
                  # Fields for Black Market event
                  black_market_quantity_available: Optional[int] = None):
         self.event_type: str = event_type
-        self.target_drug_name: Optional[str] = target_drug_name 
+        self.target_drug_name: Optional[str] = target_drug_name
         self.target_quality: Optional[DrugQuality] = target_quality
         self.sell_price_multiplier: float = sell_price_multiplier
         self.buy_price_multiplier: float = buy_price_multiplier
@@ -22,9 +27,17 @@ class MarketEvent:
         self.start_day: int = start_day
         self.heat_increase_amount: Optional[int] = heat_increase_amount
         self.temporary_stock_increase: Optional[int] = temporary_stock_increase
-        self.deal_drug_name = deal_drug_name; self.deal_quality = deal_quality
-        self.deal_quantity = deal_quantity; self.deal_price_per_unit = deal_price_per_unit
+        self.deal_drug_name = deal_drug_name
+        self.deal_quality = deal_quality
+        self.deal_quantity = deal_quantity
+        self.deal_price_per_unit = deal_price_per_unit
         self.is_buy_deal = is_buy_deal
+        # Supply Chain Disruption / Drug Market Crash fields
+        self.price_reduction_factor = price_reduction_factor
+        self.minimum_price_after_crash = minimum_price_after_crash
+        self.stock_reduction_factor = stock_reduction_factor
+        self.min_stock_after_event = min_stock_after_event
+        # Black Market event field
         self.black_market_quantity_available: Optional[int] = black_market_quantity_available
 
 

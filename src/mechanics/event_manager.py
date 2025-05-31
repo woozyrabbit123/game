@@ -1,5 +1,5 @@
 import random
-from typing import List, Optional
+from typing import List, Optional, Callable, Any # Added Callable, Any
 
 from ..core.region import Region
 from ..core.market_event import MarketEvent
@@ -37,33 +37,61 @@ def _create_and_add_demand_spike(region: Region, current_day: int):
     print(f"\nMarket Buzz: Demand for {target_quality.name} {target_drug_name} is surging in {region.name} for {event.duration_remaining_days} days!")
 
 
-# Added player_heat parameter
-def _create_and_add_supply_disruption(region: Region, current_day: int, player_heat: int):
+def _create_and_add_supply_disruption(
+    region: Region,
+    current_day: int,
+    player_heat: int, # From 'main' branch
+    game_configs: Any, # From 'supply-chain-disruption' branch
+    show_event_message_callback: Callable[[str], None], # From 'supply-chain-disruption' branch
+    add_to_log_callback: Callable[[str], None] # From 'supply-chain-disruption' branch
+):
     potential_targets = []
-    for drug_name, drug_data in region.drug_market_data.items():
-        for quality_key in drug_data.get("available_qualities", {}).keys():
-            # Pass player_heat to get_available_stock
-            if region.get_available_stock(drug_name, quality_key, player_heat) > 0:
-                potential_targets.append((drug_name, quality_key))
+    for drug_name_str, drug_data in region.drug_market_data.items():
+        if drug_data.get("tier", 0) in [2, 3]: # Only tier 2 or 3 drugs (from 'supply-chain-disruption' branch)
+            try:
+                drug_name_enum = DrugName(drug_name_str) # Convert string to DrugName enum (from 'supply-chain-disruption' branch)
+            except ValueError:
+                add_to_log_callback(f"SupplyDisruption: Skipped invalid drug name string '{drug_name_str}' in {region.name.value}.")
+                continue
+
+            for quality_key in drug_data.get("available_qualities", {}).keys():
+                # Pass player_heat to get_available_stock (from 'main' branch, applied to enum-converted drug name)
+                if region.get_available_stock(drug_name_enum, quality_key, player_heat) > 0:
+                    potential_targets.append((drug_name_enum, quality_key)) # Store enum (from 'supply-chain-disruption' branch)
+
     if not potential_targets:
+        add_to_log_callback(f"SupplyDisruption: No potential (Tier 2/3) drug targets in {region.name.value} for event.")
         return
 
-    target_drug_name, target_quality = random.choice(potential_targets)
+    target_drug_name_enum, target_quality_enum = random.choice(potential_targets)
+
     for ev in region.active_market_events:
-        if ev.target_drug_name == target_drug_name and ev.target_quality == target_quality and ev.event_type == "SUPPLY_CHAIN_DISRUPTION":
+        if (ev.event_type == "SUPPLY_CHAIN_DISRUPTION" and
+            ev.target_drug_name == target_drug_name_enum.value and # Compare with .value
+            ev.target_quality == target_quality_enum):
+            add_to_log_callback(f"SupplyDisruption: Event already active for {target_drug_name_enum.value} ({target_quality_enum.name}) in {region.name.value}.")
             return
+
+    duration = game_configs.SUPPLY_DISRUPTION_EVENT_DURATION_DAYS
+    reduction_factor = 1.0 - game_configs.SUPPLY_DISRUPTION_STOCK_REDUCTION_PERCENT
+    min_stock = game_configs.MIN_STOCK_AFTER_DISRUPTION
 
     event = MarketEvent(
         event_type="SUPPLY_CHAIN_DISRUPTION",
-        target_drug_name=target_drug_name,
-        target_quality=target_quality,
+        target_drug_name=target_drug_name_enum.value, # Store string value of enum
+        target_quality=target_quality_enum,
         sell_price_multiplier=1.0,
         buy_price_multiplier=1.0,
-        duration_remaining_days=random.randint(3, 6),
-        start_day=current_day
+        duration_remaining_days=duration,
+        start_day=current_day,
+        stock_reduction_factor=reduction_factor,
+        min_stock_after_event=min_stock
     )
     region.active_market_events.append(event)
-    print(f"\nMarket Alert: A supply chain disruption is affecting {target_quality.name} {target_drug_name} in {region.name} for {event.duration_remaining_days} days! Stock will be very low or unavailable.")
+
+    msg = f"Supply Alert! {target_drug_name_enum.value} ({target_quality_enum.name}) in {region.name.value} is now scarce due to a supply chain disruption for {duration} days!"
+    show_event_message_callback(msg)
+    add_to_log_callback(msg)
 
 
 def _create_and_add_police_crackdown(region: Region, current_day: int):
@@ -209,37 +237,80 @@ def _create_and_add_rival_busted(region: Region, current_day: int, ai_rivals: Li
     print(f"\nMajor News: Notorious dealer {busted_rival.name} has been BUSTED by authorities! They'll be out of action for about {busted_rival.busted_days_remaining} days.")
 
 
-def _create_and_add_black_market_event(region: Region, current_day: int, player_inventory: PlayerInventory, show_event_message_callback: Optional[callable] = None):
-    # Check if a similar event is already active for any drug/quality in this region
-    # This is a simpler check; the original prompt suggested checking for specific drug/quality.
-    # For a general black market, we might only want one active per region at a time.
-    # Or, if drug-specific, the check needs chosen_drug_name and chosen_quality before this.
-    # For now, let's assume one black market event type per region at a time.
-    is_event_type_active = any(ev.event_type == "BLACK_MARKET_OPPORTUNITY" for ev in region.active_market_events)
-    if is_event_type_active:
-        # print(f"DEBUG: Black market opportunity already active in {region.name}")
+def _create_and_add_drug_market_crash(
+    region: Region,
+    current_day: int,
+    game_configs: Any, # For accessing DRUG_CRASH constants
+    show_event_message_callback: Callable[[str], None],
+    add_to_log_callback: Callable[[str], None]
+):
+    potential_targets = []
+    for drug_name_enum, drug_data in region.drug_market_data.items():
+        # Ensure drug_name_enum is an instance of DrugName enum for consistency
+        if not isinstance(drug_name_enum, DrugName):
+            # This case should ideally not happen if keys are consistently enums
+            # If drug_name_enum is a string, try to convert, or skip
+            try:
+                drug_name_enum = DrugName(drug_name_enum)
+            except ValueError:
+                add_to_log_callback(f"DrugMarketCrash: Skipped invalid drug name key '{drug_name_enum}' in {region.name.value}.")
+                continue # Skip if not a valid DrugName string
+
+        for quality_key in drug_data.get("available_qualities", {}).keys():
+            if region.get_available_stock(drug_name_enum, quality_key, 0) > 0: # Passing 0 for player_heat as it's not relevant for crash trigger logic here
+                potential_targets.append((drug_name_enum, quality_key))
+
+    if not potential_targets:
+        add_to_log_callback(f"DrugMarketCrash: No potential drug targets in {region.name.value} for event.")
         return
 
+    target_drug_name, target_quality = random.choice(potential_targets)
+
+    # Check if a crash event for this specific drug/quality is already active in the region
+    for ev in region.active_market_events:
+        if (ev.event_type == "DRUG_MARKET_CRASH" and
+            ev.target_drug_name == target_drug_name.value and # target_drug_name here will be DrugName enum instance
+            ev.target_quality == target_quality):
+            add_to_log_callback(f"DrugMarketCrash: Event already active for {target_drug_name.value} ({target_quality.name}) in {region.name.value}.")
+            return
+
+    duration = game_configs.DRUG_CRASH_EVENT_DURATION_DAYS
+    reduction_percent = game_configs.DRUG_CRASH_PRICE_REDUCTION_PERCENT
+    min_price = game_configs.MINIMUM_DRUG_PRICE
+
+    event = MarketEvent(
+        event_type="DRUG_MARKET_CRASH",
+        target_drug_name=target_drug_name, # Store DrugName enum instance
+        target_quality=target_quality,
+        sell_price_multiplier=1.0, # Not used directly, effect applied via price_reduction_factor
+        buy_price_multiplier=1.0,  # Not used directly
+        duration_remaining_days=duration,
+        start_day=current_day,
+        price_reduction_factor=(1.0 - reduction_percent), # Store the factor to multiply by
+        minimum_price_after_crash=min_price
+    )
+    region.active_market_events.append(event)
+
+    # Use .value for DrugName enum when creating messages for user/log
+    msg = f"Market Crash! Prices for {target_drug_name.value} ({target_quality.name}) have plummeted in {region.name.value} for {duration} days!"
+    show_event_message_callback(msg)
+    add_to_log_callback(msg)
+
+
+def _create_and_add_black_market_event(region: Region, current_day: int, player_inventory: PlayerInventory, show_event_message_callback: Optional[Callable[[str], None]] = None):
+    # This event is for a specific drug/quality, so we need to avoid stacking for that specific combination.
     potential_targets = []
-    # Iterate through drug_market_data which should store DrugName enum as key or string version of it
     for drug_name_enum_or_str, drug_data in region.drug_market_data.items():
-        # Ensure drug_name is an enum if it's not already (might be string from older save)
         try:
             drug_name_enum = DrugName(drug_name_enum_or_str) if not isinstance(drug_name_enum_or_str, DrugName) else drug_name_enum_or_str
         except ValueError:
-            # print(f"Warning: Invalid drug name '{drug_name_enum_or_str}' in market data for {region.name}")
             continue # Skip this drug if name is not valid
 
         for quality_key in drug_data.get("available_qualities", {}).keys():
-            # Ensure quality_key is a DrugQuality enum
             if isinstance(quality_key, DrugQuality):
                 potential_targets.append((drug_name_enum, quality_key))
-            # else:
-                # print(f"Warning: Invalid quality key '{quality_key}' for drug {drug_name_enum.value} in {region.name}")
-
 
     if not potential_targets:
-        # print(f"DEBUG: No potential drug targets for black market in {region.name}")
         return
 
     chosen_drug_name, chosen_quality = random.choice(potential_targets)
@@ -252,7 +323,6 @@ def _create_and_add_black_market_event(region: Region, current_day: int, player_
         for ev in region.active_market_events
     )
     if is_specific_event_active:
-        # print(f"DEBUG: Black market for {chosen_drug_name.value} ({chosen_quality.name}) already active in {region.name}")
         return
 
     quantity = random.randint(game_configs.BLACK_MARKET_MIN_QUANTITY, game_configs.BLACK_MARKET_MAX_QUANTITY)
@@ -269,8 +339,6 @@ def _create_and_add_black_market_event(region: Region, current_day: int, player_
     )
     region.active_market_events.append(event)
 
-    # Construct message for UI pop-up and for logging
-    # Using region.name directly as it's a string. If it were an enum, region.name.value
     log_message = (f"Black Market Alert! {chosen_drug_name.value} ({chosen_quality.name}) in {region.name} "
                    f"available at {game_configs.BLACK_MARKET_PRICE_REDUCTION_PERCENT*100:.0f}% discount. "
                    f"Qty: {quantity}, for {game_configs.BLACK_MARKET_EVENT_DURATION_DAYS} day(s). "
@@ -282,30 +350,50 @@ def _create_and_add_black_market_event(region: Region, current_day: int, player_
     return log_message # Return the message for persistent logging by the caller
 
 
-def trigger_random_market_event(region: Region, current_day: int, player_inventory: PlayerInventory, ai_rivals: List[AIRival], show_event_message_callback: Optional[callable] = None) -> Optional[str]:
+def trigger_random_market_event(
+    region: Region,
+    current_day: int,
+    player_inventory: PlayerInventory,
+    ai_rivals: List[AIRival],
+    show_event_message_callback: Callable[[str], None], # Made non-Optional as new events require it
+    game_configs_data: Any, # Made non-Optional as new events require it
+    add_to_log_callback: Callable[[str], None] # Made non-Optional as new events require it
+) -> Optional[str]:
+    # Ensure callbacks are provided if we intend to use them, especially for new events
+    # The signature now enforces this.
+
+    # Independent chance for Black Market event (Jules 1)
+    # This should be checked first, as it has an independent chance and returns a message.
+    if random.random() < game_configs_data.BLACK_MARKET_CHANCE:
+        # Pass the callback down
+        return _create_and_add_black_market_event(region, current_day, player_inventory, show_event_message_callback)
+
+
     # Standard market events based on global EVENT_TRIGGER_CHANCE
-    if random.random() < game_configs.EVENT_TRIGGER_CHANCE:
+    if random.random() < game_configs_data.EVENT_TRIGGER_CHANCE: # Use game_configs_data
         event_choices = (["DEMAND_SPIKE"] * 3 +
                          ["SUPPLY_CHAIN_DISRUPTION"] * 2 +
                          ["POLICE_CRACKDOWN"] * 1 +
                          ["CHEAP_STASH"] * 2 +
                          ["THE_SETUP"] * 1 +
-                         ["RIVAL_BUSTED"] * 1)
+                         ["RIVAL_BUSTED"] * 1 +
+                         ["DRUG_MARKET_CRASH"] * 1) # Added new event (Jules 2)
         chosen_event_type = random.choice(event_choices)
-
+        
+        # All _create_and_add functions need to accept callbacks now for consistency
+        # And player_heat needs to be passed to _create_and_add_supply_disruption
         if chosen_event_type == "DEMAND_SPIKE": _create_and_add_demand_spike(region, current_day)
-        # Pass player_inventory.heat to _create_and_add_supply_disruption
-        elif chosen_event_type == "SUPPLY_CHAIN_DISRUPTION": _create_and_add_supply_disruption(region, current_day, player_inventory.heat)
+        elif chosen_event_type == "SUPPLY_CHAIN_DISRUPTION":
+            # Pass player_heat (from Jules 1 context in app.py) to _create_and_add_supply_disruption
+            # Note: player_inventory.heat will be passed from app.py
+            _create_and_add_supply_disruption(region, current_day, player_inventory.heat, game_configs_data, show_event_message_callback, add_to_log_callback)
         elif chosen_event_type == "POLICE_CRACKDOWN": _create_and_add_police_crackdown(region, current_day)
         elif chosen_event_type == "CHEAP_STASH": _create_and_add_cheap_stash(region, current_day)
         elif chosen_event_type == "THE_SETUP": _create_and_add_the_setup(region, current_day, player_inventory)
         elif chosen_event_type == "RIVAL_BUSTED": _create_and_add_rival_busted(region, current_day, ai_rivals)
+        elif chosen_event_type == "DRUG_MARKET_CRASH":
+            _create_and_add_drug_market_crash(region, current_day, game_configs_data, show_event_message_callback, add_to_log_callback)
         return None # Standard events currently use print, not returning messages for app.py log
-
-    # Independent chance for Black Market event
-    if random.random() < game_configs.BLACK_MARKET_CHANCE:
-        # Pass the callback down
-        return _create_and_add_black_market_event(region, current_day, player_inventory, show_event_message_callback)
 
     return None # No event triggered or no message to return for logging
 
@@ -328,27 +416,34 @@ def update_active_events(region: Region):
                 if not is_expired: # If not already expired by duration
                     expiry_reason = "Stock depleted"
                 is_expired = True
+        # For DRUG_MARKET_CRASH and SUPPLY_CHAIN_DISRUPTION, expiry is based on duration_remaining_days <= 0
 
         if not is_expired:
             new_active_events.append(event)
         else:
             # Logic for constructing a descriptive name for the event subject (drug/quality/rival)
             subject_name = ""
-            if event.target_drug_name and event.target_quality:
-                subject_name = f"{event.target_quality.name} {event.target_drug_name}"
-            elif event.deal_drug_name and event.deal_quality: # For THE_SETUP
-                subject_name = f"{event.deal_quality.name} {event.deal_drug_name} deal"
-            elif event.event_type == "RIVAL_BUSTED" and event.target_drug_name: # Rival's name
+            # Prioritize deal_drug_name for THE_SETUP, otherwise target_drug_name
+            if event.deal_drug_name and event.deal_quality and event.event_type == "THE_SETUP":
+                name_to_display = event.deal_drug_name.value if hasattr(event.deal_drug_name, 'value') else event.deal_drug_name
+                subject_name = f"{event.deal_quality.name} {name_to_display} deal"
+            elif event.target_drug_name and event.target_quality:
+                # Handle target_drug_name which could be an enum or string (like for RIVAL_BUSTED)
+                name_to_display = event.target_drug_name.value if hasattr(event.target_drug_name, 'value') else event.target_drug_name
+                subject_name = f"{event.target_quality.name} {name_to_display}".strip()
+            elif event.event_type == "RIVAL_BUSTED" and event.target_drug_name: # Rival name is typically a string
                 subject_name = event.target_drug_name
+            # For POLICE_CRACKDOWN, subject_name might remain empty, which is fine.
 
-            # Determine the log message based on event type
-            log_base = f"\nMarket Update in {region.name}: "
+            region_name_display = region.name.value if hasattr(region.name, 'value') else region.name
+
+            log_base = f"\nMarket Update in {region_name_display}: " # Use the display name for region
+
             if event.event_type == "DEMAND_SPIKE":
                 print(f"{log_base}The demand spike for {subject_name} has cooled off ({expiry_reason}).")
             elif event.event_type == "SUPPLY_CHAIN_DISRUPTION":
-                print(f"{log_base}The supply of {subject_name} is stabilizing ({expiry_reason}).")
+                print(f"{log_base}The supply chain disruption for {subject_name} has ended. Availability should return to normal. ({expiry_reason}).")
             elif event.event_type == "POLICE_CRACKDOWN":
-                # Police crackdown doesn't target a specific drug, so subject_name might be empty
                 print(f"{log_base}The increased police scrutiny seems to have subsided ({expiry_reason}).")
             elif event.event_type == "CHEAP_STASH":
                 print(f"{log_base}The cheap stash of {subject_name} is gone ({expiry_reason}).")
@@ -356,10 +451,9 @@ def update_active_events(region: Region):
                 print(f"{log_base}The shady offer regarding {subject_name} has vanished ({expiry_reason}).")
             elif event.event_type == "RIVAL_BUSTED":
                  print(f"{log_base}Looks like {subject_name} is back on the streets ({expiry_reason}).")
+            elif event.event_type == "DRUG_MARKET_CRASH":
+                print(f"{log_base}The market for {subject_name} has recovered from the crash ({expiry_reason}).")
             elif event.event_type == "BLACK_MARKET_OPPORTUNITY":
-                # Ensure subject_name is specific for black market if needed (already covered by target_drug_name/quality)
-                if event.target_drug_name and event.target_quality:
-                     subject_name = f"{event.target_quality.name} {event.target_drug_name} black market deal"
                 print(f"{log_base}The {subject_name} has ended ({expiry_reason}).")
             else:
                 event_description = subject_name if subject_name else "an event"

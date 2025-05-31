@@ -65,6 +65,16 @@ FORCED_FIRE_SALE_QUANTITY_PERCENT: float = 0.15  # Percentage of a single drug s
 FORCED_FIRE_SALE_PRICE_PENALTY_PERCENT: float = 0.30  # Price is 30% lower than normal sell price
 FORCED_FIRE_SALE_MIN_CASH_GAIN: float = 50.0 # Minimum cash player gets from the sale
 
+# Market Events
+DRUG_CRASH_EVENT_CHANCE: float = 0.05
+DRUG_CRASH_PRICE_REDUCTION_PERCENT: float = 0.60
+DRUG_CRASH_EVENT_DURATION_DAYS: int = 2
+MINIMUM_DRUG_PRICE: float = 1.0 # General minimum price for drugs
+SUPPLY_DISRUPTION_CHANCE: float = 0.04
+SUPPLY_DISRUPTION_STOCK_REDUCTION_PERCENT: float = 0.75
+SUPPLY_DISRUPTION_EVENT_DURATION_DAYS: int = 2
+MIN_STOCK_AFTER_DISRUPTION: int = 1
+
 # Heat System & Police Stops
 HEAT_PRICE_INCREASE_THRESHOLDS: Dict[int, float] = {0: 1.0, 21: 1.05, 51: 1.10, 81: 1.15}
 HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3: Dict[int, float] = {0: 1.0, 31: 0.75, 61: 0.50, 91: 0.25}
@@ -78,6 +88,10 @@ POLICE_STOP_CONTRABAND_THRESHOLD_UNITS: int = 10 # Units of drugs player must ca
 # Skill System
 SKILL_POINTS_PER_X_DAYS: int = 7
 SKILL_MARKET_INTUITION_COST: int = 1
+SKILL_COMPARTMENTALIZATION_COST: int = 3
+COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT: float = 0.10
+SKILL_GHOST_PROTOCOL_COST: int = 5
+GHOST_PROTOCOL_DECAY_BOOST_PERCENT: float = 0.15
 SKILL_DIGITAL_FOOTPRINT_COST: int = 2
 SKILL_MARKET_ANALYST_COST: int = 2
 DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT: float = 0.25
@@ -94,6 +108,16 @@ SKILL_DEFINITIONS = {
         "cost": SKILL_DIGITAL_FOOTPRINT_COST,
         "description": f"Reduces heat from crypto transactions by {DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT*100:.0f}%."
     },
+    "COMPARTMENTALIZATION": {
+        "name": "Compartmentalization",
+        "cost": SKILL_COMPARTMENTALIZATION_COST,
+        "description": f"Reduces heat generated from drug sales by {COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT*100:.0f}%."
+    },
+    "GHOST_PROTOCOL": {
+        "name": "Ghost Protocol",
+        "cost": SKILL_GHOST_PROTOCOL_COST,
+        "description": f"Increases daily heat decay rate by {GHOST_PROTOCOL_DECAY_BOOST_PERCENT*100:.0f}%."
+    },
     "MARKET_ANALYST": {
         "name": "Market Analyst",
         "cost": SKILL_MARKET_ANALYST_COST,
@@ -109,7 +133,7 @@ UPGRADE_DEFINITIONS = {
     },
     "EXPANDED_CAPACITY": {
         "name": "Expanded Capacity",
-        "costs": CAPACITY_COSTS, 
+        "costs": CAPACITY_COSTS,
         "capacity_levels": CAPACITY_LEVELS,
         "description_template": "Increases inventory capacity to {next_capacity}. Cost: ${next_cost:,.0f}.",
         "description_maxed": "Inventory capacity is fully upgraded."
@@ -128,21 +152,21 @@ INFORMANT_BETRAYAL_UNAVAILABLE_DAYS: int = 7 # Cooldown after a betrayal event
 
 # Cryptocurrency
 CRYPTO_PRICES_INITIAL: Dict[CryptoCoin, float] = {
-    CryptoCoin.BITCOIN: 100.0, 
-    CryptoCoin.ETHEREUM: 50.0, 
+    CryptoCoin.BITCOIN: 100.0,
+    CryptoCoin.ETHEREUM: 50.0,
     CryptoCoin.MONERO: 75.0,
     CryptoCoin.ZCASH: 25.0
 }
 
 CRYPTO_VOLATILITY: Dict[CryptoCoin, float] = {
-    CryptoCoin.BITCOIN: 0.05, 
+    CryptoCoin.BITCOIN: 0.05,
     CryptoCoin.ETHEREUM: 0.08,
     CryptoCoin.MONERO: 0.10,
     CryptoCoin.ZCASH: 0.15
 }
 
 CRYPTO_MIN_PRICE: Dict[CryptoCoin, float] = {
-    CryptoCoin.BITCOIN: 20.0, 
+    CryptoCoin.BITCOIN: 20.0,
     CryptoCoin.ETHEREUM: 10.0,
     CryptoCoin.MONERO: 15.0,
     CryptoCoin.ZCASH: 5.0
