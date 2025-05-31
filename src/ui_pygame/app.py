@@ -124,7 +124,7 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
             show_event_message_external("Final debt paid! You are free!"); add_message_to_log("Paid $20k (Final Debt). You are FREE!")
         else: game_over_message = "GAME OVER: Failed Final Debt Payment!"; add_message_to_log(game_over_message); return
 
-    if hasattr(game_state_data, 'all_regions'): [ (r.restock_market(), market_impact.decay_regional_heat(r), market_impact.decay_player_market_impact(r), market_impact.decay_rival_market_impact(r, game_state_data.current_day), event_manager.update_active_events(r, game_state_data.current_day)) for r in game_state_data.all_regions.values() if hasattr(r, 'restock_market') ]
+    if hasattr(game_state_data, 'all_regions'): [ (r.restock_market(), market_impact.decay_regional_heat(r, 1.0, player_inventory_data, game_configs_data), market_impact.decay_player_market_impact(r), market_impact.decay_rival_market_impact(r, game_state_data.current_day), event_manager.update_active_events(r, game_state_data.current_day)) for r in game_state_data.all_regions.values() if hasattr(r, 'restock_market') ]
     if hasattr(game_state_data, 'update_daily_crypto_prices'): game_state_data.update_daily_crypto_prices(game_configs_data.CRYPTO_VOLATILITY, game_configs_data.CRYPTO_MIN_PRICE)
 
     if hasattr(player_inventory_data, 'staked_drug_coin') and player_inventory_data.staked_drug_coin.get('staked_amount',0) > 0 and hasattr(game_configs_data, 'DC_STAKING_DAILY_RETURN_PERCENT'):
@@ -138,9 +138,26 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
         player_inventory_data.pending_laundered_sc=0.0; player_inventory_data.pending_laundered_sc_arrival_day=None
 
     if hasattr(game_state_data, 'current_player_region') and hasattr(event_manager, 'trigger_random_market_event'):
-        event_manager.trigger_random_market_event(game_state_data.current_player_region, game_state_data.current_day, player_inventory_data, getattr(game_state_data, 'ai_rivals',[]), show_event_message_external)
+        event_manager.trigger_random_market_event(
+            region=game_state_data.current_player_region,
+            current_day=game_state_data.current_day,
+            player_inventory=player_inventory_data,
+            ai_rivals=getattr(game_state_data, 'ai_rivals', []),
+            show_event_message_callback=show_event_message_external,
+            game_configs_data=game_configs_data, # New
+            add_to_log_callback=add_message_to_log # New
+        )
 
-    if hasattr(game_state_data, 'ai_rivals'): [ market_impact.process_rival_turn(r, game_state_data.all_regions, game_state_data.current_day, game_configs_data, show_event_message_external) for r in game_state_data.ai_rivals if not r.is_busted ]
+    if hasattr(game_state_data, 'ai_rivals'):
+        for rival_instance in game_state_data.ai_rivals: # Changed variable name from 'rival' to 'rival_instance' to avoid conflict if any
+            market_impact.process_rival_turn(
+                rival=rival_instance,
+                all_regions_dict=game_state_data.all_regions,
+                current_turn_number=game_state_data.current_day,
+                game_configs=game_configs_data,
+                add_to_log_cb=add_message_to_log,
+                show_on_screen_cb=show_event_message_external
+            )
 
     if player_inventory_data.cash < game_configs_data.BANKRUPTCY_THRESHOLD:
         game_over_message = "GAME OVER: You have gone bankrupt!"
@@ -311,9 +328,20 @@ def action_confirm_transaction(player_inv: PlayerInventory, market_region: Regio
             market_region.update_stock_on_sell(drug_for_transaction, quality_for_transaction, quantity)
             drug_tier = market_region.drug_market_data[drug_for_transaction].get('tier',1)
             heat_per_unit = game_configs_data_cache.HEAT_FROM_SELLING_DRUG_TIER.get(drug_tier,1)
-            total_heat = heat_per_unit * quantity; market_region.modify_heat(total_heat)
+            total_heat = heat_per_unit * quantity
+            if "COMPARTMENTALIZATION" in player_inv.unlocked_skills:
+                reduction_percentage = game_configs_data_cache.COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT
+                heat_reduction = total_heat * reduction_percentage
+                total_heat -= heat_reduction
+                # Ensure heat doesn't go below zero, though unlikely with percentages
+                total_heat = max(0, total_heat)
+                log_msg_compartmentalization = f"Compartmentalization skill reduced heat by {heat_reduction:.2f}."
+                add_message_to_log(log_msg_compartmentalization)
+                # Optionally, show a message to the player if desired, or just log it.
+                # For now, let's assume logging is sufficient as per typical skill effects.
+            market_region.modify_heat(total_heat)
             market_impact.apply_player_sell_impact(market_region, drug_for_transaction.value, quantity) 
-            log_msg = f"Sold {quantity} {drug_for_transaction.value} ({quality_for_transaction.name}) for ${revenue:.2f}. Heat +{total_heat} in {market_region.name.value}."
+            log_msg = f"Sold {quantity} {drug_for_transaction.value} ({quality_for_transaction.name}) for ${revenue:.2f}. Heat +{total_heat:.2f} in {market_region.name.value}."
             show_event_message_external(log_msg); add_message_to_log(log_msg)
             current_view = "market"
     quantity_input_string = ""

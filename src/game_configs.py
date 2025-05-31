@@ -51,6 +51,16 @@ DEBT_PAYMENT_3_DUE_DAY: int = 45
 # Event Chances
 EVENT_TRIGGER_CHANCE: float = 0.20
 
+# Market Events
+DRUG_CRASH_EVENT_CHANCE: float = 0.05
+DRUG_CRASH_PRICE_REDUCTION_PERCENT: float = 0.60
+DRUG_CRASH_EVENT_DURATION_DAYS: int = 2
+MINIMUM_DRUG_PRICE: float = 1.0 # General minimum price for drugs
+SUPPLY_DISRUPTION_CHANCE: float = 0.04
+SUPPLY_DISRUPTION_STOCK_REDUCTION_PERCENT: float = 0.75
+SUPPLY_DISRUPTION_EVENT_DURATION_DAYS: int = 2
+MIN_STOCK_AFTER_DISRUPTION: int = 1
+
 # Heat System & Police Stops
 HEAT_PRICE_INCREASE_THRESHOLDS: Dict[int, float] = {0: 1.0, 21: 1.05, 51: 1.10, 81: 1.15}
 HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3: Dict[int, float] = {0: 1.0, 31: 0.75, 61: 0.50, 91: 0.25}
@@ -64,6 +74,10 @@ POLICE_STOP_CONTRABAND_THRESHOLD_UNITS: int = 10 # Units of drugs player must ca
 # Skill System
 SKILL_POINTS_PER_X_DAYS: int = 7
 SKILL_MARKET_INTUITION_COST: int = 1
+SKILL_COMPARTMENTALIZATION_COST: int = 3
+COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT: float = 0.10
+SKILL_GHOST_PROTOCOL_COST: int = 5
+GHOST_PROTOCOL_DECAY_BOOST_PERCENT: float = 0.15
 SKILL_DIGITAL_FOOTPRINT_COST: int = 2 
 DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT: float = 0.25
 SKILL_PHONE_STACKING_HEAT_REDUCTION_PERCENT: float = 0.25 # Additional reduction when both phone and skill are active
@@ -78,6 +92,16 @@ SKILL_DEFINITIONS = {
         "name": "Digital Footprint",
         "cost": SKILL_DIGITAL_FOOTPRINT_COST,
         "description": f"Reduces heat from crypto transactions by {DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT*100:.0f}%."
+    },
+    "COMPARTMENTALIZATION": {
+        "name": "Compartmentalization",
+        "cost": SKILL_COMPARTMENTALIZATION_COST,
+        "description": f"Reduces heat generated from drug sales by {COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT*100:.0f}%."
+    },
+    "GHOST_PROTOCOL": {
+        "name": "Ghost Protocol",
+        "cost": SKILL_GHOST_PROTOCOL_COST,
+        "description": f"Increases daily heat decay rate by {GHOST_PROTOCOL_DECAY_BOOST_PERCENT*100:.0f}%."
     }
 }
 

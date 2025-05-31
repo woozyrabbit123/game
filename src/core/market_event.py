@@ -10,7 +10,11 @@ class MarketEvent:
                  temporary_stock_increase: Optional[int] = None,
                  deal_drug_name: Optional[str] = None, deal_quality: Optional[DrugQuality] = None,
                  deal_quantity: Optional[int] = None, deal_price_per_unit: Optional[float] = None,
-                 is_buy_deal: bool = True):
+                 is_buy_deal: bool = True,
+                 price_reduction_factor: Optional[float] = None,
+                 minimum_price_after_crash: Optional[float] = None,
+                 stock_reduction_factor: Optional[float] = None, # New
+                 min_stock_after_event: Optional[int] = None): # New
         self.event_type: str = event_type
         self.target_drug_name: Optional[str] = target_drug_name 
         self.target_quality: Optional[DrugQuality] = target_quality
@@ -23,6 +27,10 @@ class MarketEvent:
         self.deal_drug_name = deal_drug_name; self.deal_quality = deal_quality
         self.deal_quantity = deal_quantity; self.deal_price_per_unit = deal_price_per_unit
         self.is_buy_deal = is_buy_deal
+        self.price_reduction_factor = price_reduction_factor
+        self.minimum_price_after_crash = minimum_price_after_crash
+        self.stock_reduction_factor = stock_reduction_factor
+        self.min_stock_after_event = min_stock_after_event
 
     def __str__(self):
         details = f"Event: {self.event_type}"

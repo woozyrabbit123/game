@@ -1,9 +1,10 @@
 import random
-from typing import Dict, Optional, Callable
+from typing import Dict, Optional, Callable, Any
 
 from ..core.region import Region 
 from ..core.ai_rival import AIRival 
 from ..core.enums import DrugName, RegionName
+from ..core.player_inventory import PlayerInventory # Add this import
 
 def apply_player_buy_impact(region: Region, drug_name_str: str, quantity_bought: int):
     # Find DrugName enum member matching drug_name_str
@@ -41,22 +42,25 @@ def decay_player_market_impact(region: Region):
 
 def process_rival_turn(
     rival: AIRival, 
-    all_regions_dict: Dict[RegionName, Region], # Changed key type to RegionName
+    all_regions_dict: Dict[RegionName, Region],
     current_turn_number: int,
-    game_configs: any, # Added game_configs
-    log_message_callback: Optional[Callable[[str], None]] = None # Added callback for logging
+    game_configs: any,
+    add_to_log_cb: Optional[Callable[[str], None]] = None,
+    show_on_screen_cb: Optional[Callable[[str], None]] = None
     ):
     
     def _log(message):
-        if log_message_callback:
-            log_message_callback(f"[RIVAL: {rival.name}] {message}")
-        # else: print(f"[RIVAL: {rival.name}] {message}") # Fallback to print if no callback
+        if add_to_log_cb:
+            add_to_log_cb(f"[RIVAL: {rival.name}] {message}")
+        # else: print(f"[RIVAL: {rival.name}] {message}") # Fallback
 
     if rival.is_busted: 
         rival.busted_days_remaining -= 1
         if rival.busted_days_remaining <= 0:
             rival.is_busted = False
             _log(f"Is back in business after being busted!")
+            if show_on_screen_cb:
+                show_on_screen_cb(f"Rival Alert: {rival.name} is back on the streets!")
         # else: _log(f"Is still busted for {rival.busted_days_remaining} more days.") # Optional: too verbose
         return
 
@@ -113,8 +117,14 @@ def decay_rival_market_impact(region: Region, current_turn_number: int):
             elif data["rival_supply_modifier"] > 1.0: # Should not happen with current sell logic
                 data["rival_supply_modifier"] = max(1.0, data["rival_supply_modifier"] * (1 - decay_rate))
 
-def decay_regional_heat(region: Region, factor: float = 1.0): # factor allows for modified decay (e.g. in jail)
+def decay_regional_heat(region: Region, factor: float = 1.0, player_inv: Optional[PlayerInventory] = None, game_configs: Optional[Any] = None): # factor allows for modified decay (e.g. in jail)
     decay_amount = int(region.current_heat * 0.05 * factor) # Decay 5% of current heat
+    if player_inv and game_configs and "GHOST_PROTOCOL" in player_inv.unlocked_skills:
+       if hasattr(game_configs, 'GHOST_PROTOCOL_DECAY_BOOST_PERCENT'):
+           boost_percentage = game_configs.GHOST_PROTOCOL_DECAY_BOOST_PERCENT
+           decay_amount *= (1 + boost_percentage)
+           # It's good practice to ensure decay_amount remains an integer if heat is integer based
+           decay_amount = int(decay_amount)
     if region.current_heat > 0:
         region.modify_heat(-max(1, decay_amount)) # Decay at least 1 point if heat > 0
     if region.current_heat < 0 : region.current_heat = 0 # Ensure heat doesn't go negative
