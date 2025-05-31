@@ -11,9 +11,10 @@ import random # For police stop simulation
 import math # Added for math.ceil
 from typing import Optional, Dict, List, Tuple, Callable, Any # For type hinting
 
-from ..core.enums import DrugName, DrugQuality, RegionName, CryptoCoin
+from ..core.enums import DrugName, DrugQuality, RegionName, CryptoCoin, SkillID, EventType
 from ..core.player_inventory import PlayerInventory
 from ..core.region import Region
+from ..core.market_event import MarketEvent # Added for isinstance checks
 from ..mechanics import market_impact, event_manager
 from .. import game_configs as game_configs_module # To access game_configs directly for MUGGING_EVENT_CHANCE
 
@@ -177,9 +178,7 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
             )
 
     # Mugging Event Check
-    mugging_chance = getattr(game_configs_data, 'MUGGING_EVENT_CHANCE',
-                             getattr(game_configs_module, 'MUGGING_EVENT_CHANCE', 0.0))
-    if random.random() < mugging_chance and game_over_message is None and active_blocking_event_data is None:
+    if random.random() < game_configs_data.MUGGING_EVENT_CHANCE and game_over_message is None and active_blocking_event_data is None and not any(isinstance(ev, MarketEvent) and ev.event_type == EventType.MUGGING for ev in game_state_data.current_player_region.active_market_events):
         title = "Mugged!"
         messages = []
         # Option A: Cash Loss
@@ -208,7 +207,8 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
     current_informant_trust = getattr(player_inventory_data, 'informant_trust', 100)
     informant_available_check_day = getattr(game_state_data, 'informant_unavailable_until_day', None)
 
-    if current_informant_trust < trust_threshold_val and \
+    if not any(isinstance(ev, MarketEvent) and ev.event_type == EventType.INFORMANT_BETRAYAL for ev in game_state_data.current_player_region.active_market_events) and \
+       current_informant_trust < trust_threshold_val and \
        random.random() < betrayal_chance_val and \
        game_over_message is None and active_blocking_event_data is None and \
        (informant_available_check_day is None or game_state_data.current_day >= informant_available_check_day):
@@ -252,15 +252,19 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
         add_message_to_log(log_message)
 
     # Forced Fire Sale Event Check
-    ffs_chance = getattr(game_configs_data, 'FORCED_FIRE_SALE_CHANCE', getattr(game_configs_module, 'FORCED_FIRE_SALE_CHANCE', 0.02))
-    if random.random() < ffs_chance and game_over_message is None and active_blocking_event_data is None:
+    active_ffs_event = None
+    for event in game_state_data.current_player_region.active_market_events:
+        if isinstance(event, MarketEvent) and event.event_type == EventType.FORCED_FIRE_SALE:
+            active_ffs_event = event
+            break
 
+    if active_ffs_event and game_over_message is None and active_blocking_event_data is None:
         total_player_drugs_quantity = 0
-        if hasattr(player_inventory_data, 'drugs') and player_inventory_data.drugs:
-            for drug_name_str_key in player_inventory_data.drugs:
-                if player_inventory_data.drugs[drug_name_str_key]:
-                    for quality_key in player_inventory_data.drugs[drug_name_str_key]:
-                        total_player_drugs_quantity += player_inventory_data.drugs[drug_name_str_key][quality_key].get('quantity', 0)
+        if hasattr(player_inventory_data, 'items') and player_inventory_data.items:
+            for drug_name_enum_key, qualities_dict in player_inventory_data.items.items():
+                if qualities_dict:
+                    for quality_enum_key, item_details_dict in qualities_dict.items():
+                        total_player_drugs_quantity += item_details_dict.get('quantity', 0)
 
         if total_player_drugs_quantity > 0:
             ffs_qty_percent = getattr(game_configs_data, 'FORCED_FIRE_SALE_QUANTITY_PERCENT', getattr(game_configs_module, 'FORCED_FIRE_SALE_QUANTITY_PERCENT', 0.15))
@@ -272,22 +276,15 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
             total_units_sold_for_event = 0
 
             player_drug_items_to_process = []
-            if hasattr(player_inventory_data, 'drugs') and player_inventory_data.drugs:
-                for drug_name_str_outer_key in list(player_inventory_data.drugs.keys()):
-                    try:
-                        drug_name_enum_actual = DrugName(drug_name_str_outer_key)
-                    except ValueError:
-                        add_message_to_log(f"Warning: Forced Fire Sale skipping unknown drug '{drug_name_str_outer_key}' in inventory.")
-                        continue
-
-                    if player_inventory_data.drugs[drug_name_str_outer_key]:
-                        for quality_enum_inner_key in list(player_inventory_data.drugs[drug_name_str_outer_key].keys()):
-                            item_details_dict = player_inventory_data.drugs[drug_name_str_outer_key][quality_enum_inner_key]
+            if hasattr(player_inventory_data, 'items') and player_inventory_data.items:
+                for drug_name_enum_key, qualities_dict in player_inventory_data.items.items():
+                    if qualities_dict:
+                        for quality_enum_key, item_details_dict in qualities_dict.items():
                             current_quantity = item_details_dict.get('quantity', 0)
                             if current_quantity > 0:
                                 player_drug_items_to_process.append({
-                                    "name_enum": drug_name_enum_actual,
-                                    "quality_enum": quality_enum_inner_key,
+                                    "name_enum": drug_name_enum_key,
+                                    "quality_enum": quality_enum_key,
                                     "current_qty": current_quantity
                                 })
 
@@ -522,12 +519,12 @@ def action_confirm_transaction(player_inv: PlayerInventory, market_region: Regio
             # However, the event has 'black_market_quantity_available'.
             # Standard stock update should still occur for market dynamics.
             market_region.update_stock_on_buy(drug_for_transaction, quality_for_transaction, quantity)
-            market_impact.apply_player_buy_impact(market_region, drug_for_transaction.value, quantity)
+            market_impact.apply_player_buy_impact(market_region, drug_for_transaction, quantity)
 
             # Check for and update Black Market Opportunity event quantity
             for event in market_region.active_market_events:
-                if event.event_type == "BLACK_MARKET_OPPORTUNITY" and \
-                   hasattr(event, 'target_drug_name') and event.target_drug_name == drug_for_transaction.value and \
+                if event.event_type == EventType.BLACK_MARKET_OPPORTUNITY and \
+                   hasattr(event, 'target_drug_name') and event.target_drug_name == drug_for_transaction and \
                    hasattr(event, 'target_quality') and event.target_quality == quality_for_transaction and \
                    hasattr(event, 'black_market_quantity_available') and event.black_market_quantity_available > 0 and \
                    event.duration_remaining_days > 0:
@@ -565,7 +562,7 @@ def action_confirm_transaction(player_inv: PlayerInventory, market_region: Regio
             drug_tier = market_region.drug_market_data[drug_for_transaction].get('tier',1)
             heat_per_unit = game_configs_data_cache.HEAT_FROM_SELLING_DRUG_TIER.get(drug_tier,1)
             total_heat = heat_per_unit * quantity
-            if "COMPARTMENTALIZATION" in player_inv.unlocked_skills:
+            if SkillID.COMPARTMENTALIZATION in player_inv.unlocked_skills:
                 reduction_percentage = game_configs_data_cache.COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT
                 heat_reduction = total_heat * reduction_percentage
                 total_heat -= heat_reduction
@@ -576,7 +573,7 @@ def action_confirm_transaction(player_inv: PlayerInventory, market_region: Regio
                 # Optionally, show a message to the player if desired, or just log it.
                 # For now, let's assume logging is sufficient as per typical skill effects.
             market_region.modify_heat(total_heat)
-            market_impact.apply_player_sell_impact(market_region, drug_for_transaction.value, quantity)
+            market_impact.apply_player_sell_impact(player_inv, market_region, drug_for_transaction, quantity)
             log_msg = f"Sold {quantity} {drug_for_transaction.value} ({quality_for_transaction.name}) for ${revenue:.2f}. Heat +{total_heat:.2f} in {market_region.name.value}."
             show_event_message_external(log_msg); add_message_to_log(log_msg)
             current_view = "market"
@@ -591,13 +588,13 @@ def action_cancel_transaction():
     quantity_input_string = ""; tech_input_string = ""; tech_transaction_in_progress = None; active_prompt_message = None
     setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.current_player_region)
 
-def action_unlock_skill(skill_id: str, player_inv: PlayerInventory, game_configs: any):
+def action_unlock_skill(skill_id: SkillID, player_inv: PlayerInventory, game_configs: any):
     if skill_id in player_inv.unlocked_skills:
-        set_active_prompt_message("Skill already unlocked."); add_message_to_log(f"Skill unlock failed: {skill_id} already unlocked.")
+        set_active_prompt_message("Skill already unlocked."); add_message_to_log(f"Skill unlock failed: {skill_id.value} already unlocked.")
         return
     skill_def = game_configs.SKILL_DEFINITIONS.get(skill_id)
     if not skill_def:
-        set_active_prompt_message("Error: Skill data unavailable."); add_message_to_log(f"Skill unlock failed: Definition for {skill_id} not found.")
+        set_active_prompt_message("Error: Skill data unavailable."); add_message_to_log(f"Skill unlock failed: Definition for {skill_id.value} not found.")
         return
     cost = skill_def['cost']
     if player_inv.skill_points >= cost:
@@ -605,7 +602,7 @@ def action_unlock_skill(skill_id: str, player_inv: PlayerInventory, game_configs
         msg = f"Skill Unlocked: {skill_def['name']}"
         show_event_message_external(msg); add_message_to_log(msg)
     else:
-        set_active_prompt_message("Error: Not enough skill points."); add_message_to_log(f"Skill unlock failed for {skill_id}: Need {cost}, Has {player_inv.skill_points}")
+        set_active_prompt_message("Error: Not enough skill points."); add_message_to_log(f"Skill unlock failed for {skill_id.value}: Need {cost}, Has {player_inv.skill_points}")
     setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.current_player_region)
 
 def action_purchase_capacity_upgrade(player_inv: PlayerInventory, game_configs: any):
@@ -676,7 +673,7 @@ def action_tech_select_coin(coin: CryptoCoin):
 
 def action_purchase_ghost_network(player_inv: PlayerInventory, game_configs: any):
     global current_view
-    skill_id = "GHOST_NETWORK_ACCESS"; cost_dc = getattr(game_configs, 'GHOST_NETWORK_ACCESS_COST_DC', 50.0)
+    skill_id = SkillID.GHOST_NETWORK_ACCESS; cost_dc = getattr(game_configs, 'GHOST_NETWORK_ACCESS_COST_DC', 50.0)
     if skill_id in player_inv.unlocked_skills:
         set_active_prompt_message("Ghost Network access already acquired."); add_message_to_log("Ghost Network purchase failed: Already acquired.")
     elif player_inv.crypto_wallet.get(CryptoCoin.DRUG_COIN, 0) >= cost_dc:
@@ -706,7 +703,7 @@ def _validate_tech_amount(input_str: str) -> Optional[float]:
 
 def _calculate_tech_heat(player_inv: PlayerInventory, game_configs: Any) -> int:
     base_heat = game_configs.HEAT_FROM_CRYPTO_TRANSACTION; effective_heat = base_heat
-    if "DIGITAL_FOOTPRINT" in player_inv.unlocked_skills: effective_heat *= (1 - game_configs.DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT)
+    if SkillID.DIGITAL_FOOTPRINT in player_inv.unlocked_skills: effective_heat *= (1 - game_configs.DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT)
     if player_inv.has_secure_phone: effective_heat *= (1 - game_configs.SECURE_PHONE_HEAT_REDUCTION_PERCENT)
     return int(round(effective_heat))
 
@@ -858,7 +855,7 @@ def _get_active_buttons(current_view_local: str, game_state: Any, player_inv: Pl
             tech_contact_view_buttons.append(_create_action_button("Launder Cash",functools.partial(action_initiate_tech_operation,"launder_cash"),tech_c1_x,tech_y_start+2*(tech_h+STD_BUTTON_SPACING),tech_w,tech_h,font=FONT_SMALL))
             tech_contact_view_buttons.append(_create_action_button("Stake DC",functools.partial(action_initiate_tech_operation,"stake_dc"),tech_c2_x,tech_y_start,tech_w,tech_h,font=FONT_SMALL)) # Changed
             tech_contact_view_buttons.append(_create_action_button("Unstake DC",functools.partial(action_initiate_tech_operation,"unstake_dc"),tech_c2_x,tech_y_start+tech_h+STD_BUTTON_SPACING,tech_w,tech_h,font=FONT_SMALL)) # Changed
-            gh_skill_id="GHOST_NETWORK_ACCESS";has_gh=gh_skill_id in player_inv.unlocked_skills
+            has_gh=SkillID.GHOST_NETWORK_ACCESS in player_inv.unlocked_skills
             tech_contact_view_buttons.append(_create_action_button("Ghost Network Acquired"if has_gh else"Buy Ghost Network",functools.partial(action_initiate_tech_operation,"buy_ghost_network"),tech_c2_x,tech_y_start+2*(tech_h+STD_BUTTON_SPACING),tech_w,tech_h,font=FONT_SMALL,is_enabled=not has_gh))
             can_coll=player_inv.staked_drug_coin.get('pending_rewards',0.0)>1e-9;coll_btn_y=tech_y_start+3*(tech_h+STD_BUTTON_SPACING)
             tech_contact_view_buttons.append(_create_action_button("Collect Staking Rewards",functools.partial(action_initiate_tech_operation,"collect_dc_rewards"),tech_c1_x,coll_btn_y,tech_w,tech_h,font=FONT_SMALL,is_enabled=can_coll)) # Changed
