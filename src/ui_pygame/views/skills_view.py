@@ -75,10 +75,46 @@ def draw_skills_view(
     pygame.draw.rect(surface, YALE_BLUE, skills_header_rect, 1)
     draw_text(surface, "AVAILABLE SKILLS", SCREEN_WIDTH // 2, 215, 
               font=FONT_MEDIUM, color=PLATINUM, center_aligned=True)
-    
-    # The detailed text for each skill (name, description, cost) is drawn by setup_buttons in pygame_ui.py
-    # This function's main job now is to draw the title, skill points, and the buttons themselves.
-    
+
+    skill_y_start_text = 240  # Initial Y position for the first skill's text block
+    skill_item_v_spacing = 80 # Vertical spacing between skill items
+    text_x_start = 60         # Left padding for text
+    cost_x_pos = text_x_start + 380 # X position for cost text (adjust as needed)
+    # Max width for description, considering button on the right
+    # Approx: SCREEN_WIDTH - left_margin - right_margin - button_width - padding_for_button
+    description_max_width = SCREEN_WIDTH - text_x_start - 60 - 170 - 20
+
+
+    if hasattr(game_configs_data, 'SKILL_DEFINITIONS'):
+        for idx, (skill_id, skill_def) in enumerate(game_configs_data.SKILL_DEFINITIONS.items()):
+            current_skill_base_y = skill_y_start_text + (idx * skill_item_v_spacing)
+
+            # Draw Skill Name
+            draw_text(surface, skill_def['name'], text_x_start, current_skill_base_y,
+                      font=FONT_MEDIUM_BOLD, color=PLATINUM)
+
+            # Draw Skill Cost
+            cost_text = f"Cost: {skill_def['cost']} SP"
+            # Check if skill is already unlocked to change cost text color/style
+            is_unlocked = skill_id in player_inventory_data.unlocked_skills
+            cost_color = GOLDEN_YELLOW
+            if is_unlocked:
+                cost_text = "Unlocked"
+                cost_color = (100, 180, 100) # A light green for unlocked
+
+            draw_text(surface, cost_text, cost_x_pos, current_skill_base_y,
+                      font=FONT_SMALL, color=cost_color)
+
+            # Draw Skill Description
+            draw_text(surface, skill_def['description'], text_x_start, current_skill_base_y + 25,
+                      font=FONT_XSMALL, color=PLATINUM, max_width=description_max_width)
+
+            # Separator line (optional)
+            if idx < len(game_configs_data.SKILL_DEFINITIONS) - 1:
+                 line_y = current_skill_base_y + skill_item_v_spacing - 15
+                 pygame.draw.line(surface, YALE_BLUE, (text_x_start, line_y), (SCREEN_WIDTH - text_x_start - 60, line_y), 1)
+
+
     mouse_pos = pygame.mouse.get_pos()
     for button in skills_buttons: # These include "Unlock" buttons and the "Back" button
         button.draw(surface, mouse_pos)
