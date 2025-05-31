@@ -1,6 +1,6 @@
 """Game configuration constants and settings."""
 from typing import Dict, List
-from .core.enums import CryptoCoin, DrugQuality, DrugName, RegionName
+from .core.enums import CryptoCoin, DrugQuality, DrugName, RegionName, SkillID
 
 # Global game settings and constants
 
@@ -98,27 +98,27 @@ DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT: float = 0.25
 SKILL_PHONE_STACKING_HEAT_REDUCTION_PERCENT: float = 0.25 # Additional reduction when both phone and skill are active
 
 SKILL_DEFINITIONS = {
-    "MARKET_INTUITION": {
+    SkillID.MARKET_INTUITION: {
         "name": "Market Intuition",
         "cost": SKILL_MARKET_INTUITION_COST,
         "description": "Shows market price trends for drugs."
     },
-    "DIGITAL_FOOTPRINT": {
+    SkillID.DIGITAL_FOOTPRINT: {
         "name": "Digital Footprint",
         "cost": SKILL_DIGITAL_FOOTPRINT_COST,
         "description": f"Reduces heat from crypto transactions by {DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT*100:.0f}%."
     },
-    "COMPARTMENTALIZATION": {
+    SkillID.COMPARTMENTALIZATION: {
         "name": "Compartmentalization",
         "cost": SKILL_COMPARTMENTALIZATION_COST,
         "description": f"Reduces heat generated from drug sales by {COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT*100:.0f}%."
     },
-    "GHOST_PROTOCOL": {
+    SkillID.GHOST_PROTOCOL: {
         "name": "Ghost Protocol",
         "cost": SKILL_GHOST_PROTOCOL_COST,
         "description": f"Increases daily heat decay rate by {GHOST_PROTOCOL_DECAY_BOOST_PERCENT*100:.0f}%."
     },
-    "MARKET_ANALYST": {
+    SkillID.MARKET_ANALYST: {
         "name": "Market Analyst",
         "cost": SKILL_MARKET_ANALYST_COST,
         "description": "Shows if a drug's price has increased, decreased, or stayed stable since yesterday."
