@@ -8,12 +8,14 @@ import pygame
 import sys
 import functools # For partial functions
 import random # For police stop simulation
+import math # Added for math.ceil
 from typing import Optional, Dict, List, Tuple, Callable, Any # For type hinting
 
 from ..core.enums import DrugName, DrugQuality, RegionName, CryptoCoin
-from ..core.player_inventory import PlayerInventory 
+from ..core.player_inventory import PlayerInventory
 from ..core.region import Region
 from ..mechanics import market_impact, event_manager
+from .. import game_configs as game_configs_module # To access game_configs directly for MUGGING_EVENT_CHANCE
 
 from .ui_theme import (
     RICH_BLACK, OXFORD_BLUE, YALE_BLUE, SILVER_LAKE_BLUE, PLATINUM, GHOST_WHITE,
@@ -138,7 +140,223 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
         player_inventory_data.pending_laundered_sc=0.0; player_inventory_data.pending_laundered_sc_arrival_day=None
 
     if hasattr(game_state_data, 'current_player_region') and hasattr(event_manager, 'trigger_random_market_event'):
-        event_manager.trigger_random_market_event(game_state_data.current_player_region, game_state_data.current_day, player_inventory_data, getattr(game_state_data, 'ai_rivals',[]), show_event_message_external)
+        # Capture the potential log message returned by the event manager (specifically for Black Market event)
+        triggered_event_log_msg = event_manager.trigger_random_market_event(
+            game_state_data.current_player_region,
+            game_state_data.current_day,
+            player_inventory_data,
+            getattr(game_state_data, 'ai_rivals', []),
+            show_event_message_external # This callback is for the on-screen pop-up message
+        )
+        if triggered_event_log_msg: # If a message was returned (e.g., from Black Market event)
+            add_message_to_log(triggered_event_log_msg) # Add it to the persistent game log
+
+    # Mugging Event Check
+    # Access MUGGING_EVENT_CHANCE safely from the loaded game_configs_data object first,
+    # then try from the module if not found (e.g. older save), default to 0.0
+    mugging_chance = getattr(game_configs_data, 'MUGGING_EVENT_CHANCE',
+                             getattr(game_configs_module, 'MUGGING_EVENT_CHANCE', 0.0))
+    if random.random() < mugging_chance and game_over_message is None:
+        # Player is not safe from mugging during game over or if another blocking event is active
+        global active_blocking_event_data # Ensure we are modifying the global var
+        if active_blocking_event_data is None:
+            title = "Mugged!"
+            messages = []
+            outcome_log = ""
+
+            # Option A: Cash Loss
+            cash_loss_percentage = random.uniform(0.05, 0.15)
+            cash_lost = player_inventory_data.cash * cash_loss_percentage
+
+            # Ensure cash doesn't go below zero
+            cash_lost = min(cash_lost, player_inventory_data.cash)
+
+            player_inventory_data.cash -= cash_lost
+
+            messages.append(f"You were ambushed by thugs!")
+            messages.append(f"They managed to steal ${cash_lost:,.2f} from you.")
+            outcome_log = f"Mugging event: Lost ${cash_lost:,.2f}."
+
+            # UI Feedback
+            active_blocking_event_data = {
+                'title': title,
+                'messages': messages,
+                'button_text': "Damn it!"
+            }
+            add_message_to_log(outcome_log)
+            # No game over from this event, bankruptcy check is later
+
+    # Informant Betrayal Event Check
+    betrayal_chance_val = getattr(game_configs_data, 'INFORMANT_BETRAYAL_CHANCE', getattr(game_configs_module, 'INFORMANT_BETRAYAL_CHANCE', 0.03))
+    trust_threshold_val = getattr(game_configs_data, 'INFORMANT_TRUST_THRESHOLD_FOR_BETRAYAL', getattr(game_configs_module, 'INFORMANT_TRUST_THRESHOLD_FOR_BETRAYAL', 20))
+    unavailable_days_val = getattr(game_configs_data, 'INFORMANT_BETRAYAL_UNAVAILABLE_DAYS', getattr(game_configs_module, 'INFORMANT_BETRAYAL_UNAVAILABLE_DAYS', 7))
+
+    # Ensure player_inventory_data has informant_trust, default to a high value if not to prevent accidental trigger
+    current_informant_trust = getattr(player_inventory_data, 'informant_trust', 100)
+    # Ensure game_state_data has informant_unavailable_until_day, default to None if not
+    informant_available_check_day = getattr(game_state_data, 'informant_unavailable_until_day', None)
+
+    if current_informant_trust < trust_threshold_val and \
+       random.random() < betrayal_chance_val and \
+       game_over_message is None and active_blocking_event_data is None and \
+       (informant_available_check_day is None or game_state_data.current_day >= informant_available_check_day):
+
+        global active_blocking_event_data # Ensure we are modifying the global var
+        # Informant Betrayal Occurs
+        game_state_data.informant_unavailable_until_day = game_state_data.current_day + unavailable_days_val
+
+        original_trust = current_informant_trust # Use the getattr value
+        player_inventory_data.informant_trust = max(0, current_informant_trust - 10)
+        trust_lost = original_trust - player_inventory_data.informant_trust
+
+        heat_increase = 5 # Small regional heat
+        region_name_for_log = "Unknown Region"
+        if hasattr(game_state_data, 'current_player_region') and game_state_data.current_player_region is not None:
+            current_player_region_obj = game_state_data.current_player_region
+            region_name_for_log = getattr(current_player_region_obj.name, 'value', str(current_player_region_obj.name))
+            if hasattr(current_player_region_obj, 'modify_heat'):
+                current_player_region_obj.modify_heat(heat_increase)
+            else:
+                # Fallback if no modify_heat method
+                current_player_region_obj.current_heat = getattr(current_player_region_obj, 'current_heat', 0) + heat_increase
+        else: # Fallback if current_player_region is not set on game_state_data
+             add_message_to_log("Warning: current_player_region not found for heat increase in betrayal event.")
+
+
+        title = "Informant Betrayal!"
+        messages = [
+            "Your informant sold you out to the authorities!",
+            f"They will be unavailable for {unavailable_days_val} days.",
+            f"Your trust with them has decreased by {trust_lost}.",
+            f"Heat in {region_name_for_log} has increased by {heat_increase}."
+        ]
+        button_text = "Damn it!"
+
+        active_blocking_event_data = {
+            'title': title,
+            'messages': messages,
+            'button_text': button_text
+        }
+
+        log_message = (f"Informant betrayal event triggered. Informant unavailable for {unavailable_days_val} days. "
+                       f"Trust reduced by {trust_lost} (to {player_inventory_data.informant_trust}). "
+                       f"Regional heat in {region_name_for_log} increased by {heat_increase}.")
+        add_message_to_log(log_message)
+
+    # Forced Fire Sale Event Check
+    ffs_chance = getattr(game_configs_data, 'FORCED_FIRE_SALE_CHANCE', getattr(game_configs_module, 'FORCED_FIRE_SALE_CHANCE', 0.02))
+    if random.random() < ffs_chance and game_over_message is None and active_blocking_event_data is None:
+
+        total_player_drugs_quantity = 0
+        if hasattr(player_inventory_data, 'drugs') and player_inventory_data.drugs:
+            for drug_name_str_key in player_inventory_data.drugs:
+                if player_inventory_data.drugs[drug_name_str_key]:
+                    for quality_key in player_inventory_data.drugs[drug_name_str_key]:
+                        total_player_drugs_quantity += player_inventory_data.drugs[drug_name_str_key][quality_key].get('quantity', 0)
+
+        if total_player_drugs_quantity > 0:
+            # active_blocking_event_data is already global in app.py, direct assignment is fine.
+
+            ffs_qty_percent = getattr(game_configs_data, 'FORCED_FIRE_SALE_QUANTITY_PERCENT', getattr(game_configs_module, 'FORCED_FIRE_SALE_QUANTITY_PERCENT', 0.15))
+            ffs_penalty_percent = getattr(game_configs_data, 'FORCED_FIRE_SALE_PRICE_PENALTY_PERCENT', getattr(game_configs_module, 'FORCED_FIRE_SALE_PRICE_PENALTY_PERCENT', 0.30))
+            ffs_min_cash_gain = getattr(game_configs_data, 'FORCED_FIRE_SALE_MIN_CASH_GAIN', getattr(game_configs_module, 'FORCED_FIRE_SALE_MIN_CASH_GAIN', 50.0))
+
+            drugs_sold_details = []
+            total_cash_gained = 0.0
+            total_units_sold_for_event = 0
+
+            player_drug_items_to_process = []
+            if hasattr(player_inventory_data, 'drugs') and player_inventory_data.drugs:
+                for drug_name_str_outer_key in list(player_inventory_data.drugs.keys()):
+                    try:
+                        drug_name_enum_actual = DrugName(drug_name_str_outer_key)
+                    except ValueError:
+                        add_message_to_log(f"Warning: Forced Fire Sale skipping unknown drug '{drug_name_str_outer_key}' in inventory.")
+                        continue
+
+                    if player_inventory_data.drugs[drug_name_str_outer_key]:
+                        for quality_enum_inner_key in list(player_inventory_data.drugs[drug_name_str_outer_key].keys()):
+                            item_details_dict = player_inventory_data.drugs[drug_name_str_outer_key][quality_enum_inner_key]
+                            current_quantity = item_details_dict.get('quantity', 0)
+                            if current_quantity > 0:
+                                player_drug_items_to_process.append({
+                                    "name_enum": drug_name_enum_actual,
+                                    "quality_enum": quality_enum_inner_key,
+                                    "current_qty": current_quantity
+                                })
+
+            for drug_item_data in player_drug_items_to_process:
+                drug_name_val = drug_item_data["name_enum"]
+                quality_val = drug_item_data["quality_enum"]
+                current_qty = drug_item_data["current_qty"]
+
+                qty_of_this_drug_to_sell = math.ceil(current_qty * ffs_qty_percent)
+                qty_of_this_drug_to_sell = min(qty_of_this_drug_to_sell, current_qty)
+
+                if qty_of_this_drug_to_sell > 0:
+                    # Ensure current_player_region exists and has get_sell_price
+                    if not hasattr(game_state_data, 'current_player_region') or \
+                       not hasattr(game_state_data.current_player_region, 'get_sell_price'):
+                        add_message_to_log(f"Forced Fire Sale: Player region or get_sell_price not available. Skipping sale of {drug_name_val.value}.")
+                        continue
+
+                    current_market_sell_price = game_state_data.current_player_region.get_sell_price(drug_name_val, quality_val)
+
+                    if current_market_sell_price <= 0:
+                        add_message_to_log(f"Forced Fire Sale: No market demand for {drug_name_val.value} ({quality_val.name}), cannot sell this item.")
+                        continue
+
+                    discounted_price = current_market_sell_price * (1.0 - ffs_penalty_percent)
+                    discounted_price = round(max(0.01, discounted_price), 2)
+
+                    cash_from_this_sale = qty_of_this_drug_to_sell * discounted_price
+                    total_cash_gained += cash_from_this_sale
+
+                    player_inventory_data.remove_drug(drug_name_val, quality_val, qty_of_this_drug_to_sell)
+                    total_units_sold_for_event += qty_of_this_drug_to_sell
+                    drugs_sold_details.append(f"{qty_of_this_drug_to_sell} {drug_name_val.value} ({quality_val.name})")
+
+            if total_units_sold_for_event > 0 and total_cash_gained < ffs_min_cash_gain:
+                total_cash_gained = ffs_min_cash_gain
+
+            if total_units_sold_for_event > 0 : # Only add cash if something was actually sold or min_gain applies
+                player_inventory_data.cash += total_cash_gained
+
+            if total_units_sold_for_event > 0: # Only apply heat and show popup if something actually happened
+                heat_increase_ffs = 10
+                region_name_log_ffs = "Unknown Region"
+                if hasattr(game_state_data, 'current_player_region') and game_state_data.current_player_region is not None:
+                    current_player_region_obj_ffs = game_state_data.current_player_region
+                    region_name_log_ffs = getattr(current_player_region_obj_ffs.name, 'value', str(current_player_region_obj_ffs.name))
+                    if hasattr(current_player_region_obj_ffs, 'modify_heat'):
+                        current_player_region_obj_ffs.modify_heat(heat_increase_ffs)
+                    else:
+                        current_player_region_obj_ffs.current_heat = getattr(current_player_region_obj_ffs, 'current_heat', 0) + heat_increase_ffs
+
+                ffs_title = "Forced Fire Sale!"
+                sold_summary_display_str = ", ".join(drugs_sold_details) if drugs_sold_details else "some assets (details unclear)"
+                ffs_messages = [
+                    "An unforeseen situation forces you to liquidate some assets quickly!",
+                    f"You had to sell: {sold_summary_display_str}.",
+                    f"Total cash gained: ${total_cash_gained:,.2f}.",
+                    f"The hurried transactions increased heat in {region_name_log_ffs} by {heat_increase_ffs}."
+                ]
+                if not drugs_sold_details and total_units_sold_for_event > 0: # Should not happen if min_cash_gain logic is correct with check for total_units_sold_for_event > 0
+                     ffs_messages[1] = f"You scrambled to sell some assets under pressure."
+
+                active_blocking_event_data = {
+                    'title': ffs_title,
+                    'messages': ffs_messages,
+                    'button_text': "Got it."
+                }
+
+                log_summary_ffs = (f"Forced Fire Sale event. Sold: {sold_summary_display_str}. "
+                                   f"Cash Gained: ${total_cash_gained:,.2f}. "
+                                   f"Heat in {region_name_log_ffs} +{heat_increase_ffs}.")
+                add_message_to_log(log_summary_ffs)
+            elif total_player_drugs_quantity > 0 : # Player had drugs, but none could be sold (e.g. no market demand)
+                 add_message_to_log("Forced Fire Sale event triggered, but no drugs could be sold due to market conditions or zero quantity after calculation.")
+
 
     if hasattr(game_state_data, 'ai_rivals'): [ market_impact.process_rival_turn(r, game_state_data.all_regions, game_state_data.current_day, game_configs_data, show_event_message_external) for r in game_state_data.ai_rivals if not r.is_busted ]
 
@@ -295,8 +513,40 @@ def action_confirm_transaction(player_inv: PlayerInventory, market_region: Regio
             set_active_prompt_message(errmsg); add_message_to_log(f"Buy failed: {errmsg} Current load {player_inv.current_load}, Requesting {quantity}, Capacity {player_inv.max_capacity}")
         else:
             player_inv.cash -= cost; player_inv.add_drug(drug_for_transaction, quality_for_transaction, quantity)
+            # Standard market stock update (this might need adjustment if black market has separate stock)
+            # For now, assume black market quantity is on top of regular, or this is just for price.
+            # The get_buy_price logic implies black market is a special price, not necessarily separate stock source.
+            # However, the event has 'black_market_quantity_available'.
+            # Standard stock update should still occur for market dynamics.
             market_region.update_stock_on_buy(drug_for_transaction, quality_for_transaction, quantity)
-            market_impact.apply_player_buy_impact(market_region, drug_for_transaction.value, quantity) 
+            market_impact.apply_player_buy_impact(market_region, drug_for_transaction.value, quantity)
+
+            # Check for and update Black Market Opportunity event quantity
+            for event in market_region.active_market_events:
+                if event.event_type == "BLACK_MARKET_OPPORTUNITY" and \
+                   hasattr(event, 'target_drug_name') and event.target_drug_name == drug_for_transaction.value and \
+                   hasattr(event, 'target_quality') and event.target_quality == quality_for_transaction and \
+                   hasattr(event, 'black_market_quantity_available') and event.black_market_quantity_available > 0 and \
+                   event.duration_remaining_days > 0:
+
+                    amount_bought_from_event = quantity # Assume the whole transaction quantity came from this deal if price was matched
+
+                    # If the black market event has less than the player wants to buy,
+                    # this logic assumes the get_buy_price already gave the black market price
+                    # for the available portion. Here we just record the reduction.
+                    # A more complex system might split the buy if BM quantity < player quantity.
+                    # For now, if BM price was given, assume entire quantity is from BM if available.
+
+                    actual_reduction = min(amount_bought_from_event, event.black_market_quantity_available)
+                    original_event_qty = event.black_market_quantity_available
+                    event.black_market_quantity_available = max(0, event.black_market_quantity_available - actual_reduction)
+
+                    log_msg_bm = (f"Black Market: Purchased {actual_reduction} of {drug_for_transaction.value} ({quality_for_transaction.name}). "
+                                  f"Event quantity reduced from {original_event_qty} to {event.black_market_quantity_available}.")
+                    add_message_to_log(log_msg_bm)
+                    # print(f"DEBUG: {log_msg_bm}")
+                    break
+
             log_msg = f"Bought {quantity} {drug_for_transaction.value} ({quality_for_transaction.name}) for ${cost:.2f}."
             show_event_message_external(log_msg); add_message_to_log(log_msg)
             current_view = "market"
@@ -521,13 +771,29 @@ def _get_active_buttons(current_view_local: str, game_state: Any, player_inv: Pl
         game_over_buttons.append(_create_action_button("Exit Game",lambda:sys.exit(),btn_x,btn_y,btn_w,btn_h,font=FONT_MEDIUM)); return game_over_buttons
 
     if current_view_local == "main_menu":
-        actions_defs = [("Market",action_open_market,None),("Inventory",action_open_inventory,None),("Travel",action_open_travel,None),("Tech Contact",action_open_tech_contact,None),("Meet Informant",action_open_informant,None),("Skills",action_open_skills,None),("Upgrades",action_open_upgrades,None)]
-        col1_c = 4;
-        for i,(text,action,_) in enumerate(actions_defs):
-            col,row_in_col = (0,i) if i<col1_c else (1,i-col1_c); x_pos=start_x+col*(button_width+spacing); y_pos=start_y+row_in_col*(button_height+spacing)
-            if col==1 and row_in_col==0: y_pos=start_y
-            main_menu_buttons.append(_create_action_button(text,action,x_pos,y_pos,button_width,button_height))
-        return main_menu_buttons # Corrected unindent
+        actions_defs = [
+            ("Market", action_open_market, None),
+            ("Inventory", action_open_inventory, None),
+            ("Travel", action_open_travel, None),
+            ("Tech Contact", action_open_tech_contact, None),
+            ("Meet Informant", action_open_informant,
+             lambda: (getattr(game_state, 'informant_unavailable_until_day', None) is None or \
+                      getattr(game_state, 'current_day', 0) >= getattr(game_state, 'informant_unavailable_until_day', 0))),
+            ("Skills", action_open_skills, None),
+            ("Upgrades", action_open_upgrades, None)
+        ]
+        col1_c = 4
+        for i, (text, action, enabled_check) in enumerate(actions_defs): # Use enabled_check
+            col, row_in_col = (0, i) if i < col1_c else (1, i - col1_c)
+            x_pos = start_x + col * (button_width + spacing)
+            y_pos = start_y + row_in_col * (button_height + spacing)
+            if col == 1 and row_in_col == 0: y_pos = start_y # Adjust y for second column start
+
+            is_enabled = enabled_check() if enabled_check else True # Call the lambda if it exists
+            main_menu_buttons.append(
+                _create_action_button(text, action, x_pos, y_pos, button_width, button_height, is_enabled=is_enabled)
+            )
+        return main_menu_buttons
         
     elif current_view_local == "blocking_event_popup":
         if active_blocking_event_data:
@@ -549,7 +815,8 @@ def _get_active_buttons(current_view_local: str, game_state: Any, player_inv: Pl
                 for qual_enum in sorted(qualities_avail.keys(),key=lambda q:q.value):
                     if cur_btn_y>SCREEN_HEIGHT-100:break
                     buy_p,sell_p=current_region.get_buy_price(drug_n,qual_enum),current_region.get_sell_price(drug_n,qual_enum)
-                    mkt_stock=current_region.get_available_stock(drug_n,qual_enum); player_item=player_inv.get_drug_item(drug_n,qual_enum)
+                    # Pass player_inv.heat to get_available_stock
+                    mkt_stock=current_region.get_available_stock(drug_n,qual_enum, player_inv.heat); player_item=player_inv.get_drug_item(drug_n,qual_enum)
                     p_has_stock=player_item['quantity']if player_item else 0; can_buy=buy_p>0 and mkt_stock>0 and player_inv.cash>=buy_p; can_sell=sell_p>0 and p_has_stock>0
                     buy_x,sell_x=col_xs["actions"],col_xs["actions"]+act_btn_w+5
                     market_buy_sell_buttons.append(_create_action_button("Buy",functools.partial(action_initiate_buy,drug_n,qual_enum,buy_p,mkt_stock),buy_x,cur_btn_y-2,act_btn_w,act_btn_h,font=FONT_XSMALL,is_enabled=can_buy))
@@ -596,12 +863,35 @@ def _get_active_buttons(current_view_local: str, game_state: Any, player_inv: Pl
         return tech_contact_view_buttons
     elif current_view_local=="skills":
         skills_view_buttons.append(_create_back_button())
-        if hasattr(game_configs,'SKILL_DEFINITIONS')and game_configs.SKILL_DEFINITIONS:
-            skill_y_off=120;item_sp=80
-            for skill_id,skill_d in game_configs.SKILL_DEFINITIONS.items():
-                is_unl=skill_id in player_inv.unlocked_skills;can_unl=player_inv.skill_points>=skill_d['cost']and not is_unl
-                skills_view_buttons.append(_create_action_button("Unlock",functools.partial(action_unlock_skill,skill_id,player_inv,game_configs),UPGRADE_ITEM_X_START+UPGRADE_ITEM_WIDTH-UPGRADE_BUTTON_WIDTH-10,skill_y_off+10,UPGRADE_BUTTON_WIDTH,UPGRADE_BUTTON_HEIGHT,font=FONT_SMALL,is_enabled=can_unl))
-                skill_y_off+=item_sp
+        if hasattr(game_configs, 'SKILL_DEFINITIONS') and game_configs.SKILL_DEFINITIONS:
+            skill_items_start_y = 240  # Align with text rendering in skills_view.py
+            skill_item_vertical_spacing = 80 # Align with text rendering
+
+            button_x_pos = UPGRADE_ITEM_X_START + UPGRADE_ITEM_WIDTH - UPGRADE_BUTTON_WIDTH - 10
+
+            for idx, (skill_id, skill_def) in enumerate(game_configs.SKILL_DEFINITIONS.items()):
+                is_unlocked = skill_id in player_inv.unlocked_skills
+                can_unlock = player_inv.skill_points >= skill_def['cost'] and not is_unlocked
+
+                button_text = "Unlock"
+                if is_unlocked:
+                    button_text = "Unlocked"
+
+                # Calculate Y position for the button, centered within the item's vertical space
+                current_button_y = skill_items_start_y + (idx * skill_item_vertical_spacing) + (skill_item_vertical_spacing - UPGRADE_BUTTON_HEIGHT) // 2
+
+                skills_view_buttons.append(
+                    _create_action_button(
+                        button_text,
+                        functools.partial(action_unlock_skill, skill_id, player_inv, game_configs),
+                        button_x_pos,
+                        current_button_y,
+                        UPGRADE_BUTTON_WIDTH,
+                        UPGRADE_BUTTON_HEIGHT,
+                        font=FONT_SMALL,
+                        is_enabled=can_unlock
+                    )
+                )
         return skills_view_buttons
     elif current_view_local=="upgrades":
         upgrades_view_buttons.append(_create_back_button())

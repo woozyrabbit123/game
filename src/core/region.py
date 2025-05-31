@@ -1,4 +1,5 @@
 import random
+import math # Added math import
 from typing import Dict, List, Optional
 
 from .enums import DrugQuality
@@ -74,11 +75,32 @@ class Region:
             drug_data_quality["previous_buy_price"] = price_before_event_and_heat
 
         heat_multiplier = self._get_heat_price_multiplier()
-        calculated_price = price_before_event_and_heat * heat_multiplier
+        price_after_heat = price_before_event_and_heat * heat_multiplier
 
+        # Priority 1: Check for active Black Market Opportunity for this specific drug/quality
         for event in self.active_market_events:
-            if event.target_drug_name == drug_name and event.target_quality == quality: calculated_price *= event.buy_price_multiplier; break 
-        return round(max(0, calculated_price), 2)
+            if event.event_type == "BLACK_MARKET_OPPORTUNITY" and \
+               event.target_drug_name == drug_name and \
+               event.target_quality == quality and \
+               getattr(event, 'black_market_quantity_available', 0) > 0 and \
+               event.duration_remaining_days > 0:
+                # Apply black market discount and return immediately
+                # event.buy_price_multiplier for black market is (1.0 - reduction_percent)
+                # print(f"DEBUG: Black market discount for {drug_name} {quality.name}: Original price {price_after_heat}, Multiplier {event.buy_price_multiplier}")
+                return round(max(0, price_after_heat * event.buy_price_multiplier), 2)
+
+        # Priority 2: Other events affecting buy price (e.g., DEMAND_SPIKE, CHEAP_STASH)
+        # These events should not stack if a black market deal was already applied (due to the return above).
+        final_price = price_after_heat
+        for event in self.active_market_events:
+            if event.target_drug_name == drug_name and event.target_quality == quality:
+                # Apply multipliers from other relevant events if no black market deal took precedence
+                if event.event_type == "DEMAND_SPIKE" or event.event_type == "CHEAP_STASH":
+                    final_price *= event.buy_price_multiplier
+                    # print(f"DEBUG: Event {event.event_type} applied for {drug_name} {quality.name}: Price {final_price}, Multiplier {event.buy_price_multiplier}")
+                    break # Assuming only one of these event types should apply at a time for simplicity.
+
+        return round(max(0, final_price), 2)
 
     def get_sell_price(self, drug_name: str, quality: DrugQuality) -> float:
         if drug_name not in self.drug_market_data or quality not in self.drug_market_data[drug_name]["available_qualities"]: return 0.0
@@ -97,9 +119,27 @@ class Region:
             if event.target_drug_name == drug_name and event.target_quality == quality: calculated_price *= event.sell_price_multiplier; break
         return round(max(0, calculated_price), 2)
 
-    def get_available_stock(self, drug_name: str, quality: DrugQuality) -> int:
-        if (drug_name not in self.drug_market_data or quality not in self.drug_market_data[drug_name]["available_qualities"]): return 0
-        return self.drug_market_data[drug_name]["available_qualities"][quality]["quantity_available"]
+    def get_available_stock(self, drug_name: str, quality: DrugQuality, player_heat: int) -> int:
+        if (drug_name not in self.drug_market_data or
+            quality not in self.drug_market_data[drug_name]["available_qualities"]):
+            return 0
+
+        base_stock = self.drug_market_data[drug_name]["available_qualities"][quality]["quantity_available"]
+        modified_stock = base_stock
+        drug_tier = self.drug_market_data[drug_name].get("tier")
+
+        if drug_tier in [2, 3]:
+            reduction_multiplier = 1.0 # Default if no threshold met
+            # Sort thresholds to ensure correct application (highest heat first)
+            for threshold, multiplier in sorted(HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3.items(), reverse=True):
+                if player_heat >= threshold:
+                    reduction_multiplier = multiplier
+                    break
+
+            modified_stock = math.floor(base_stock * reduction_multiplier)
+            modified_stock = max(0, modified_stock) # Ensure stock doesn't go below zero
+
+        return modified_stock
 
     def update_stock_on_buy(self, drug_name: str, quality: DrugQuality, quantity_bought: int):
         if (drug_name not in self.drug_market_data or quality not in self.drug_market_data[drug_name]["available_qualities"]): return

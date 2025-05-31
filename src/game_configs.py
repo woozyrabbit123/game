@@ -50,6 +50,20 @@ DEBT_PAYMENT_3_DUE_DAY: int = 45
 
 # Event Chances
 EVENT_TRIGGER_CHANCE: float = 0.20
+MUGGING_EVENT_CHANCE: float = 0.10
+
+# Black Market Event
+BLACK_MARKET_CHANCE: float = 0.04
+BLACK_MARKET_PRICE_REDUCTION_PERCENT: float = 0.50  # Player buys at 50% of normal price
+BLACK_MARKET_EVENT_DURATION_DAYS: int = 1
+BLACK_MARKET_MIN_QUANTITY: int = 20
+BLACK_MARKET_MAX_QUANTITY: int = 50
+
+# Forced Fire Sale Event
+FORCED_FIRE_SALE_CHANCE: float = 0.02
+FORCED_FIRE_SALE_QUANTITY_PERCENT: float = 0.15  # Percentage of a single drug stash to be sold
+FORCED_FIRE_SALE_PRICE_PENALTY_PERCENT: float = 0.30  # Price is 30% lower than normal sell price
+FORCED_FIRE_SALE_MIN_CASH_GAIN: float = 50.0 # Minimum cash player gets from the sale
 
 # Heat System & Police Stops
 HEAT_PRICE_INCREASE_THRESHOLDS: Dict[int, float] = {0: 1.0, 21: 1.05, 51: 1.10, 81: 1.15}
@@ -64,7 +78,8 @@ POLICE_STOP_CONTRABAND_THRESHOLD_UNITS: int = 10 # Units of drugs player must ca
 # Skill System
 SKILL_POINTS_PER_X_DAYS: int = 7
 SKILL_MARKET_INTUITION_COST: int = 1
-SKILL_DIGITAL_FOOTPRINT_COST: int = 2 
+SKILL_DIGITAL_FOOTPRINT_COST: int = 2
+SKILL_MARKET_ANALYST_COST: int = 2
 DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT: float = 0.25
 SKILL_PHONE_STACKING_HEAT_REDUCTION_PERCENT: float = 0.25 # Additional reduction when both phone and skill are active
 
@@ -78,6 +93,11 @@ SKILL_DEFINITIONS = {
         "name": "Digital Footprint",
         "cost": SKILL_DIGITAL_FOOTPRINT_COST,
         "description": f"Reduces heat from crypto transactions by {DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT*100:.0f}%."
+    },
+    "MARKET_ANALYST": {
+        "name": "Market Analyst",
+        "cost": SKILL_MARKET_ANALYST_COST,
+        "description": "Shows if a drug's price has increased, decreased, or stayed stable since yesterday."
     }
 }
 
@@ -102,6 +122,9 @@ INFORMANT_TIP_COST_DRUG_INFO: float = 75.0
 INFORMANT_TIP_COST_RIVAL_INFO: float = 100.0
 INFORMANT_TRUST_GAIN_PER_TIP: int = 5
 INFORMANT_MAX_TRUST: int = 100
+INFORMANT_BETRAYAL_CHANCE: float = 0.03
+INFORMANT_TRUST_THRESHOLD_FOR_BETRAYAL: int = 20  # Trust must be <= this for betrayal
+INFORMANT_BETRAYAL_UNAVAILABLE_DAYS: int = 7 # Cooldown after a betrayal event
 
 # Cryptocurrency
 CRYPTO_PRICES_INITIAL: Dict[CryptoCoin, float] = {

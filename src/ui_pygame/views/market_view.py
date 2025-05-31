@@ -27,6 +27,18 @@ def _calculate_trend_icon(current_price: Optional[float], previous_price: Option
         else: return "=", TEXT_COLOR
     return "-", MEDIUM_GREY
 
+# Helper function for Market Analyst skill
+def _get_price_movement_indicator(current_p: Optional[float], prev_p: Optional[float]) -> Tuple[str, Tuple[int, int, int]]:
+    if current_p is not None and prev_p is not None and current_p > 0 and prev_p > 0:
+        # Using a slightly larger tolerance for more meaningful changes
+        if current_p > prev_p * 1.015:  # Price increased by more than 1.5%
+            return "↑", EMERALD_GREEN  # Up arrow
+        elif current_p < prev_p * 0.985: # Price decreased by more than 1.5%
+            return "↓", IMPERIAL_RED    # Down arrow
+        else:
+            return "―", TEXT_COLOR     # Stable dash / hyphen-minus
+    return " ", MEDIUM_GREY # No data, not applicable, or price is zero
+
 
 def draw_market_view(
     surface: pygame.Surface, 
@@ -117,7 +129,8 @@ def draw_market_view(
                 
                 buy_price = market_region_data.get_buy_price(drug_name, quality_enum)
                 sell_price = market_region_data.get_sell_price(drug_name, quality_enum)
-                stock = market_region_data.get_available_stock(drug_name, quality_enum)
+                # Pass player_inventory_data.heat to get_available_stock
+                stock = market_region_data.get_available_stock(drug_name, quality_enum, player_inventory_data.heat)
 
                 # Drug name with quality styling
                 drug_display = f"{drug_name} ({quality_enum.name.capitalize()})"
@@ -126,12 +139,30 @@ def draw_market_view(
                 # Price displays with better formatting
                 buy_text = f"${buy_price:.2f}" if buy_price > 0 else "---"
                 buy_color = EMERALD_GREEN if buy_price > 0 else IMPERIAL_RED
-                draw_text(surface, buy_text, col_xs["buy"], y_offset, font=FONT_SMALL, color=buy_color)
+                # Draw buy price text
+                buy_price_surface = FONT_SMALL.render(buy_text, True, buy_color)
+                surface.blit(buy_price_surface, (col_xs["buy"], y_offset))
+                buy_price_text_width = buy_price_surface.get_width()
                 
-                sell_text = f"${sell_price:.2f}" if sell_price > 0 else "---"
                 sell_color = EMERALD_GREEN if sell_price > 0 else IMPERIAL_RED
-                draw_text(surface, sell_text, col_xs["sell"], y_offset, font=FONT_SMALL, color=sell_color)
-                
+                # Draw sell price text
+                sell_price_surface = FONT_SMALL.render(sell_text, True, sell_color)
+                surface.blit(sell_price_surface, (col_xs["sell"], y_offset))
+                sell_price_text_width = sell_price_surface.get_width()
+
+                # Market Analyst Skill: Price Movement Indicators
+                if "MARKET_ANALYST" in player_inventory_data.unlocked_skills:
+                    prev_buy_price = drug_data_dict["available_qualities"][quality_enum].get("previous_buy_price")
+                    prev_sell_price = drug_data_dict["available_qualities"][quality_enum].get("previous_sell_price")
+
+                    buy_indicator_char, buy_indicator_color = _get_price_movement_indicator(buy_price, prev_buy_price)
+                    sell_indicator_char, sell_indicator_color = _get_price_movement_indicator(sell_price, prev_sell_price)
+
+                    # Draw indicators next to the prices
+                    indicator_offset_x = 5 # Small gap
+                    draw_text(surface, buy_indicator_char, col_xs["buy"] + buy_price_text_width + indicator_offset_x, y_offset, font=FONT_SMALL, color=buy_indicator_color)
+                    draw_text(surface, sell_indicator_char, col_xs["sell"] + sell_price_text_width + indicator_offset_x, y_offset, font=FONT_SMALL, color=sell_indicator_color)
+
                 # Stock with color coding
                 stock_color = EMERALD_GREEN if stock > 100 else GOLDEN_YELLOW if stock > 10 else IMPERIAL_RED
                 draw_text(surface, str(stock), col_xs["stock"], y_offset, font=FONT_SMALL, color=stock_color)

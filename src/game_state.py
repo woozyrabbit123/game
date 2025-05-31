@@ -12,19 +12,22 @@ current_crypto_prices: Dict[CryptoCoin, float] = {}
 ai_rivals: List[AIRival] = []
 all_regions: Dict[RegionName, Region] = {}
 current_player_region: Region = None
+informant_unavailable_until_day: Optional[int] = None
 
 def get_game_state():
     """Get the current game state."""
     return {
         'crypto_prices': current_crypto_prices,
-        'ai_rivals': ai_rivals
+        'ai_rivals': ai_rivals,
+        'informant_unavailable_until_day': informant_unavailable_until_day
     }
 
 def initialize_game_state():
     """Initialize the game state with default values."""
-    global current_crypto_prices, ai_rivals
+    global current_crypto_prices, ai_rivals, informant_unavailable_until_day
     current_crypto_prices = game_configs.CRYPTO_PRICES_INITIAL.copy()
     ai_rivals = []
+    informant_unavailable_until_day = None
 
 def initialize_crypto_prices(initial_prices: Dict[CryptoCoin, float]): # Use CryptoCoin as key type
     """Sets the initial prices for cryptocurrencies."""
@@ -132,6 +135,9 @@ def initialize_regions():
 
 def initialize_global_state(game_configs_module):
     """Initialize all game state components."""
+    # Ensure game_configs is available if not already by direct import
+    # This is more of a structural note; actual import should be at module top.
+    # from . import game_configs # Ensure it's available if passed as module
     initialize_game_state()
     initialize_regions()
     
