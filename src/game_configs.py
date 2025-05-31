@@ -7,6 +7,7 @@ from .core.enums import CryptoCoin, DrugQuality, DrugName, RegionName
 # Player Defaults
 PLAYER_STARTING_CASH: float = 5000.0
 PLAYER_MAX_CAPACITY: int = 150 # This is the base capacity
+BANKRUPTCY_THRESHOLD: int = -1000 # If cash falls below this, game over
 
 # OpSec Upgrades
 SECURE_PHONE_COST: float = 5000.0
@@ -50,13 +51,15 @@ DEBT_PAYMENT_3_DUE_DAY: int = 45
 # Event Chances
 EVENT_TRIGGER_CHANCE: float = 0.20
 
-# Heat System
+# Heat System & Police Stops
 HEAT_PRICE_INCREASE_THRESHOLDS: Dict[int, float] = {0: 1.0, 21: 1.05, 51: 1.10, 81: 1.15}
 HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3: Dict[int, float] = {0: 1.0, 31: 0.75, 61: 0.50, 91: 0.25}
 HEAT_FROM_SELLING_DRUG_TIER: Dict[int, int] = {1: 1, 2: 2, 3: 4, 4: 8}
 HEAT_FROM_CRYPTO_TRANSACTION: int = 1
 POLICE_STOP_HEAT_THRESHOLD: int = 50
 DIGITAL_ARSENAL_WARNING_HEAT_THRESHOLD: int = 80
+POLICE_STOP_CONFISCATION_CHANCE: float = 0.25 # Chance all drugs are confiscated if searched and over threshold
+POLICE_STOP_CONTRABAND_THRESHOLD_UNITS: int = 10 # Units of drugs player must carry to risk confiscation if searched
 
 # Skill System
 SKILL_POINTS_PER_X_DAYS: int = 7
