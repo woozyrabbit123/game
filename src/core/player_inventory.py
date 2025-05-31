@@ -89,6 +89,10 @@ class PlayerInventory:
     def get_quantity(self, drug_name: DrugName, quality: DrugQuality) -> int:
         return self.items.get(drug_name, {}).get(quality, 0)
 
+    def get_drug_quantity(self, drug_name: DrugName, quality: DrugQuality) -> int:
+        """Return the quantity of a specific drug and quality in inventory."""
+        return self.items.get(drug_name, {}).get(quality, 0)
+
     def add_crypto(self, coin: CryptoCoin, amount: float):
         if amount <= 0: return
         self.crypto_wallet[coin] = self.crypto_wallet.get(coin, 0.0) + amount

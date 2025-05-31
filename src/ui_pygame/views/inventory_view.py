@@ -136,7 +136,7 @@ def draw_inventory_view(
             if i % 2 == 0:
                 skill_row_rect = pygame.Rect(col3_x + 10, y_offset - 5, 230, 18)
                 pygame.draw.rect(surface, (12, 22, 38), skill_row_rect)
-            draw_text(surface, f"  - {skill_id.replace('_', ' ').title()}", col3_x + 20, y_offset, font=FONT_XSMALL, color=LIGHT_GREY) # Prettify skill name
+            draw_text(surface, f"  - {skill_id.value.replace('_', ' ').title()}", col3_x + 20, y_offset, font=FONT_XSMALL, color=LIGHT_GREY) # Prettify skill name
             y_offset += int(line_height * 0.8)
     else:
         no_skills_rect = pygame.Rect(col3_x, y_offset - 5, 250, 20)

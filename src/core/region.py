@@ -11,7 +11,7 @@ from ..game_configs import (HEAT_PRICE_INCREASE_THRESHOLDS,
 
 class Region:
     def __init__(self, name: str):
-        self.name = name
+        self.name = RegionName(name) if isinstance(name, str) else name
         self.drug_market_data: Dict[DrugName, Dict] = {}
         self.active_market_events: List[MarketEvent] = []
         self.current_heat: int = 0
@@ -197,6 +197,14 @@ class Region:
     def update_stock_on_buy(self, drug_name: DrugName, quality: DrugQuality, quantity_bought: int):
         if (drug_name not in self.drug_market_data or quality not in self.drug_market_data[drug_name]["available_qualities"]): return
         stock_data = self.drug_market_data[drug_name]["available_qualities"][quality]; stock_data["quantity_available"] = max(0, stock_data["quantity_available"] - quantity_bought)
+
+    def update_stock_on_sell(self, drug_name: DrugName, quality: DrugQuality, quantity: int):
+        """Decrease the stock of a drug/quality when the player sells to the market."""
+        if drug_name in self.drug_market_data and quality in self.drug_market_data[drug_name]["available_qualities"]:
+            self.drug_market_data[drug_name]["available_qualities"][quality]["quantity_available"] = max(
+                0,
+                self.drug_market_data[drug_name]["available_qualities"][quality]["quantity_available"] - quantity
+            )
 
     def restock_market(self):
         # drug_name here is already an enum because it comes from self.drug_market_data.keys()

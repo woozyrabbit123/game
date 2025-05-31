@@ -20,10 +20,10 @@ from ..ui_components import Button
 SCREEN_WIDTH = 1024
 SCREEN_HEIGHT = 768 
 
-def _calculate_trend_icon(current_price: Optional[float], previous_price: Optional[float]) -> Tuple[str, Tuple[int, int, int]]:
-    if current_price is not None and previous_price is not None and current_price > 0 and previous_price > 0:
-        if current_price > previous_price * 1.02: return "↑", EMERALD_GREEN
-        elif current_price < previous_price * 0.98: return "↓", IMPERIAL_RED
+def _calculate_trend_icon(current_price: Optional[float], previousPrice: Optional[float]) -> Tuple[str, Tuple[int, int, int]]:
+    if current_price is not None and previousPrice is not None and current_price > 0 and previousPrice > 0:
+        if current_price > previousPrice * 1.02: return "↑", EMERALD_GREEN
+        elif current_price < previousPrice * 0.98: return "↓", IMPERIAL_RED
         else: return "=", TEXT_COLOR
     return "-", MEDIUM_GREY
 
@@ -61,7 +61,7 @@ def draw_market_view(
     pygame.draw.rect(surface, (10, 20, 40), title_rect)
     pygame.draw.rect(surface, SILVER_LAKE_BLUE, title_rect, 2)
     
-    region_name_str = market_region_data.name if market_region_data and market_region_data.name else "Unknown Region"
+    region_name_str = market_region_data.name.value if market_region_data and hasattr(market_region_data.name, 'value') else str(market_region_data.name) if market_region_data and market_region_data.name else "Unknown Region"
     draw_text(surface, f"DRUG MARKET - {region_name_str.upper()}", SCREEN_WIDTH // 2, 70, 
               font=FONT_LARGE, color=GOLDEN_YELLOW, center_aligned=True)
     
@@ -109,7 +109,7 @@ def draw_market_view(
         show_trend_icons = "MARKET_INTUITION" in player_inventory_data.unlocked_skills
         button_pair_index = 0
         mouse_pos = pygame.mouse.get_pos()
-        sorted_drug_names = sorted(market_region_data.drug_market_data.keys())
+        sorted_drug_names = sorted(market_region_data.drug_market_data.keys(), key=lambda d: d.value)
         
         row_count = 0
         for drug_name in sorted_drug_names:
@@ -145,6 +145,8 @@ def draw_market_view(
                 buy_price_text_width = buy_price_surface.get_width()
                 
                 sell_color = EMERALD_GREEN if sell_price > 0 else IMPERIAL_RED
+                # Define sell_text before using it
+                sell_text = f"${sell_price:.2f}" if sell_price > 0 else "---"
                 # Draw sell price text
                 sell_price_surface = FONT_SMALL.render(sell_text, True, sell_color)
                 surface.blit(sell_price_surface, (col_xs["sell"], y_offset))

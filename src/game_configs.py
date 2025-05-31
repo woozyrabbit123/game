@@ -85,6 +85,9 @@ DIGITAL_ARSENAL_WARNING_HEAT_THRESHOLD: int = 80
 POLICE_STOP_CONFISCATION_CHANCE: float = 0.25 # Chance all drugs are confiscated if searched and over threshold
 POLICE_STOP_CONTRABAND_THRESHOLD_UNITS: int = 10 # Units of drugs player must carry to risk confiscation if searched
 
+POLICE_STOP_BASE_CHANCE: float = 0.10  # Base chance of police stop
+POLICE_STOP_CHANCE_PER_HEAT_POINT_ABOVE_THRESHOLD: float = 0.01  # Chance increase per heat point above threshold
+
 # Skill System
 SKILL_POINTS_PER_X_DAYS: int = 7
 SKILL_MARKET_INTUITION_COST: int = 1

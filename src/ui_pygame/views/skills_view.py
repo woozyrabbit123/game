@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     # from game_configs import GameConfigs
 
 from ..ui_theme import (
-    FONT_LARGE, FONT_MEDIUM, FONT_MEDIUM_BOLD, YALE_BLUE, IMPERIAL_RED, GOLDEN_YELLOW, PLATINUM,
+    FONT_LARGE, FONT_MEDIUM, FONT_MEDIUM_BOLD, FONT_SMALL, FONT_XSMALL, YALE_BLUE, IMPERIAL_RED, GOLDEN_YELLOW, PLATINUM,
     draw_text
 )
 from ..ui_components import Button

@@ -107,8 +107,7 @@ player_inventory_cache: Optional[PlayerInventory] = None
 
 # --- Daily Updates Function ---
 def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInventory, game_configs_data: any):
-    """Performs daily updates for the game state, player inventory, and game configurations."""
-    global game_over_message
+    global game_over_message, active_blocking_event_data
     if game_over_message is not None: return
 
     if not player_inventory_data.debt_payment_1_paid and game_state_data.current_day >= game_configs_data.DEBT_PAYMENT_1_DUE_DAY:
@@ -757,7 +756,7 @@ def action_confirm_tech_operation(player_inv: PlayerInventory, game_state: any, 
     if success: current_view = "tech_contact"; tech_input_string = ""; tech_transaction_in_progress = None
     else:
         if amount is None : tech_input_string = ""
-    setup_buttons(game_state, player_inv, game_configs, current_player_region)
+    setup_buttons(game_state_data_cache, player_inv, game_configs, current_player_region)
 
 # --- Button Creation Helper Functions & UI Setup ---
 def _create_action_button(text: str, action: Callable, x: int, y: int, width: int, height: int, font: pygame.font.Font = FONT_MEDIUM, is_enabled: bool = True) -> Button:
@@ -819,7 +818,8 @@ def _get_active_buttons(current_view_local: str, game_state: Any, player_inv: Pl
     elif current_view_local == "market":
         market_view_buttons.append(_create_back_button()); col_xs={"actions":650}; act_btn_w,act_btn_h=70,22
         if current_region and current_region.drug_market_data:
-            sorted_drugs=sorted(current_region.drug_market_data.keys()); btn_y_off=105; line_h=28; cur_btn_y=btn_y_off
+            sorted_drugs = sorted(current_region.drug_market_data.keys(), key=lambda d: d.value)
+            btn_y_off=105; line_h=28; cur_btn_y=btn_y_off
             for drug_n in sorted_drugs:
                 drug_data=current_region.drug_market_data[drug_n]; qualities_avail=drug_data.get("available_qualities",{})
                 if not qualities_avail: continue
@@ -957,6 +957,7 @@ def game_loop(player_inventory: PlayerInventory, initial_current_region: Region,
                     blocking_event_popup_buttons[0].action()
                     if previous_view != current_view: setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, current_player_region_for_frame)
                 continue
+           
             is_market_input_active = current_view=="market_buy_input" or current_view=="market_sell_input"; is_tech_input_active = current_view=="tech_input_amount"
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:

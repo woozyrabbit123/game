@@ -1,6 +1,6 @@
 """Game state management module."""
 import random
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from .core.enums import CryptoCoin, DrugQuality, RegionName
 from .core.ai_rival import AIRival
@@ -13,6 +13,7 @@ ai_rivals: List[AIRival] = []
 all_regions: Dict[RegionName, Region] = {}
 current_player_region: Region = None
 informant_unavailable_until_day: Optional[int] = None
+current_day: int = 1
 
 def get_game_state():
     """Get the current game state."""
