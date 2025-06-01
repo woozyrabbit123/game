@@ -2,21 +2,21 @@
 """
 Handles drawing the Game Over screen.
 """
-import pygame
-from typing import List, Optional
+from typing import List # Optional removed
 
-from ..ui_theme import (
+import pygame
+
+from ..ui_components import Button
+from ..ui_theme import ( # Alphabetized, YALE_BLUE removed
+    FONT_LARGE_BOLD,
     FONT_XLARGE,
-    FONT_LARGE_BOLD,  # Changed FONT_TITLE to FONT_LARGE_BOLD for game over
     IMPERIAL_RED,
-    PLATINUM,
     OXFORD_BLUE,
-    YALE_BLUE,
-    RICH_BLACK,  # Added RICH_BLACK
-    draw_text,
+    PLATINUM,
+    RICH_BLACK,
     draw_panel,
+    draw_text,
 )
-from ..ui_components import Button  # For drawing buttons passed to it
 
 SCREEN_WIDTH = 1024  # Consider shared constants
 SCREEN_HEIGHT = 768

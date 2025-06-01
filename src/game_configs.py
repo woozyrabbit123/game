@@ -7,7 +7,7 @@ skill definitions, and cryptocurrency settings.
 These configurations control the balance and features of the game.
 """
 
-from typing import Dict, List, Union  # Added Union for EventConfigValues
+from typing import Dict, List, Union, Tuple  # Added Union for EventConfigValues, Tuple for definitions
 from .core.enums import CryptoCoin, DrugQuality, DrugName, RegionName, SkillID
 
 # --- Global Game Settings and Constants ---
@@ -456,3 +456,219 @@ RIVAL_MARKET_IMPACT_SUPPLY_DECAY_MULTIPLIER: float = 0.1 #: Multiplier for AI ri
 
 REGIONAL_HEAT_DECAY_PERCENTAGE: float = 0.05          #: Daily percentage by which regional heat decays.
 MIN_REGIONAL_HEAT_DECAY_AMOUNT: int = 1               #: Minimum amount by which regional heat decays if heat > 0.
+
+
+# --- Region Definitions ---
+# Structure: (RegionName Enum, String Name, List of DrugDefinitionTuple)
+# DrugDefinitionTuple: (DrugName str, BasePrice, MaxPrice, DemandFactor, QualitiesStockRanges)
+# QualitiesStockRanges: {DrugQuality_Enum: (min_stock, max_stock)}
+DrugDefinitionTuple = Tuple[
+    str, int, int, int, Dict[DrugQuality, Tuple[int, int]]
+]
+RegionDefinitionTuple = Tuple[RegionName, str, List[DrugDefinitionTuple]]
+
+REGION_DEFINITIONS: List[RegionDefinitionTuple] = [
+    (
+        RegionName.DOWNTOWN,
+        RegionName.DOWNTOWN.value,
+        [
+            (
+                "Weed",
+                50,
+                80,
+                1,
+                {DrugQuality.STANDARD: (100, 200)},
+            ),  # DrugName will be converted to Enum or used as str
+            (
+                "Pills",
+                100,
+                150,
+                2,
+                {DrugQuality.STANDARD: (40, 80), DrugQuality.CUT: (60, 120)},
+            ),
+            (
+                "Coke",
+                1000,
+                1500,
+                3,
+                {
+                    DrugQuality.PURE: (10, 25),
+                    DrugQuality.STANDARD: (15, 50),
+                    DrugQuality.CUT: (20, 60),
+                },
+            ),
+        ],
+    ),
+    (
+        RegionName.DOCKS,
+        RegionName.DOCKS.value,
+        [
+            ("Weed", 40, 70, 1, {DrugQuality.STANDARD: (100, 300)}),
+            (
+                "Speed",
+                120,
+                180,
+                2,
+                {DrugQuality.STANDARD: (30, 90), DrugQuality.CUT: (50, 100)},
+            ),
+            (
+                "Heroin",
+                600,
+                900,
+                3,
+                {DrugQuality.PURE: (5, 15), DrugQuality.STANDARD: (10, 30)},
+            ),
+        ],
+    ),
+    (
+        RegionName.SUBURBS,
+        RegionName.SUBURBS.value,
+        [
+            ("Weed", 60, 100, 1, {DrugQuality.STANDARD: (20, 60)}),
+            (
+                "Pills",
+                110,
+                170,
+                2,
+                {DrugQuality.STANDARD: (20, 50), DrugQuality.PURE: (5, 15)},
+            ),
+        ],
+    ),
+    (
+        RegionName.INDUSTRIAL,
+        RegionName.INDUSTRIAL.value,
+        [
+            ("Weed", 45, 75, 1, {DrugQuality.STANDARD: (150, 250)}),
+            (
+                "Speed",
+                110,
+                170,
+                2,
+                {
+                    DrugQuality.STANDARD: (40, 100),
+                    DrugQuality.CUT: (60, 140),
+                    DrugQuality.PURE: (10, 30),
+                },
+            ),
+            (
+                "Coke",
+                950,
+                1400,
+                3,
+                {
+                    DrugQuality.PURE: (8, 20),
+                    DrugQuality.STANDARD: (12, 40),
+                    DrugQuality.CUT: (18, 55),
+                },
+            ),
+        ],
+    ),
+    (
+        RegionName.COMMERCIAL,
+        RegionName.COMMERCIAL.value,
+        [
+            ("Weed", 55, 90, 1, {DrugQuality.STANDARD: (80, 150)}),
+            (
+                "Pills",
+                105,
+                160,
+                2,
+                {
+                    DrugQuality.STANDARD: (25, 60),
+                    DrugQuality.PURE: (8, 20),
+                    DrugQuality.CUT: (40, 80),
+                },
+            ),
+            (
+                "Heroin",
+                580,
+                850,
+                3,
+                {
+                    DrugQuality.PURE: (3, 12),
+                    DrugQuality.STANDARD: (8, 25),
+                    DrugQuality.CUT: (15, 40),
+                },
+            ),
+        ],
+    ),
+    (
+        RegionName.UNIVERSITY_HILLS,
+        RegionName.UNIVERSITY_HILLS.value,
+        [
+            ("Weed", 70, 110, 1, {DrugQuality.STANDARD: (50, 100)}),
+            (
+                "Pills",
+                120,
+                180,
+                2,
+                {DrugQuality.STANDARD: (30, 60), DrugQuality.PURE: (10, 20)},
+            ),
+            (
+                "Speed",
+                130,
+                190,
+                2,
+                {DrugQuality.CUT: (40, 80), DrugQuality.STANDARD: (20, 50)},
+            ),
+        ],
+    ),
+    (
+        RegionName.RIVERSIDE,
+        RegionName.RIVERSIDE.value,
+        [
+            ("Weed", 40, 65, 1, {DrugQuality.STANDARD: (120, 250)}),
+            (
+                "Heroin",
+                550,
+                800,
+                3,
+                {DrugQuality.STANDARD: (10, 25), DrugQuality.CUT: (15, 35)},
+            ),
+        ],
+    ),
+    (
+        RegionName.AIRPORT_DISTRICT,
+        RegionName.AIRPORT_DISTRICT.value,
+        [
+            (
+                "Coke",
+                1100,
+                1600,
+                3,
+                {DrugQuality.PURE: (15, 30), DrugQuality.STANDARD: (20, 40)},
+            ),
+            (
+                "Speed",
+                150,
+                220,
+                2,
+                {DrugQuality.PURE: (20, 40), DrugQuality.STANDARD: (30, 60)},
+            ),
+        ],
+    ),
+    (
+        RegionName.OLD_TOWN,
+        RegionName.OLD_TOWN.value,
+        [
+            (
+                "Pills",
+                90,
+                140,
+                2,
+                {DrugQuality.STANDARD: (50, 100), DrugQuality.CUT: (70, 130)},
+            ),
+            (
+                "Heroin",
+                620,
+                920,
+                3,
+                {
+                    DrugQuality.CUT: (20, 50),
+                    DrugQuality.STANDARD: (10, 30),
+                    DrugQuality.PURE: (5, 10),
+                },
+            ),
+        ],
+    ),
+]

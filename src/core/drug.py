@@ -2,20 +2,21 @@
 Defines the Drug class, representing a specific drug item with its attributes.
 """
 from dataclasses import dataclass
-from .enums import DrugQuality
 from typing import TYPE_CHECKING
+
+from .. import game_configs  # Import the game_configs module
+from .enums import DrugQuality
 
 if TYPE_CHECKING:
     pass
 
-from .. import game_configs # Import the game_configs module
 
 @dataclass
 class Drug:
     """
     Represents a drug item in the game.
 
-    Each drug has a name, tier (indicating rarity/value), base prices, and quality.
+    Each drug has a name, tier (rarity/value), base prices, and quality.
     The quality affects its actual buy and sell prices.
     """
     name: str
@@ -27,7 +28,8 @@ class Drug:
     def __post_init__(self) -> None:
         """
         Post-initialization logic.
-        If tier is 1, quality is forced to STANDARD, overriding any provided quality.
+        If tier is 1, quality is forced to STANDARD, overriding any provided
+        quality.
         """
         if self.tier == 1:
             self.quality = DrugQuality.STANDARD
@@ -41,21 +43,20 @@ class Drug:
         quality decreases it.
 
         Args:
-            price_type: A string indicating whether the price is for "buy" or "sell".
+            price_type: A string indicating 'buy' or 'sell'.
 
         Returns:
-            The quality-based price multiplier (float). Returns 1.0 if price_type
-            is unknown or if quality is somehow invalid (though type checking
-            should prevent the latter).
+            The quality-based price multiplier. Returns default if price_type
+            is unknown or quality is invalid.
         """
-        if price_type == "buy":
+        if price_type == 'buy':
             if self.quality == DrugQuality.CUT:
                 return game_configs.QUALITY_MULT_CUT_BUY
             elif self.quality == DrugQuality.STANDARD:
                 return game_configs.QUALITY_MULT_STANDARD_BUY
             elif self.quality == DrugQuality.PURE:
                 return game_configs.QUALITY_MULT_PURE_BUY
-        elif price_type == "sell":
+        elif price_type == 'sell':
             if self.quality == DrugQuality.CUT:
                 return game_configs.QUALITY_MULT_CUT_SELL
             elif self.quality == DrugQuality.STANDARD:

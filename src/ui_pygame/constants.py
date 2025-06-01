@@ -3,6 +3,47 @@ Constants for Project Narco-Syndicate Pygame UI.
 Split from app.py for modularity.
 """
 
+# Re-exporting from ui_theme for convenience if needed,
+# though direct imports from ui_theme in other modules are cleaner.
+# Alphabetized:
+from .ui_theme import (
+    BUTTON_COLOR,
+    BUTTON_DISABLED_COLOR,
+    BUTTON_DISABLED_TEXT_COLOR,
+    BUTTON_HOVER_COLOR,
+    BUTTON_TEXT_COLOR,
+    DARK_GREY,
+    EMERALD_GREEN,
+    FONT_LARGE,
+    FONT_LARGE_BOLD,
+    FONT_MEDIUM,
+    FONT_SMALL,
+    FONT_XLARGE,
+    FONT_XSMALL,
+    GHOST_WHITE,
+    GOLDEN_YELLOW,
+    HUD_ACCENT_COLOR,
+    HUD_BACKGROUND_COLOR,
+    HUD_TEXT_COLOR,
+    IMPERIAL_RED,
+    LIGHT_GREY,
+    MEDIUM_GREY,
+    NEON_BLUE,
+    OXFORD_BLUE,
+    PLATINUM,
+    RICH_BLACK,
+    SILVER_LAKE_BLUE,
+    TEXT_COLOR,
+    TEXT_INPUT_BG_COLOR,
+    TEXT_INPUT_BORDER_COLOR,
+    TEXT_INPUT_TEXT_COLOR,
+    VERY_LIGHT_GREY,
+    YALE_BLUE,
+    draw_input_box,
+    draw_panel,
+    draw_text,
+)
+
 # Screen Dimensions
 SCREEN_WIDTH: int = 1024
 SCREEN_HEIGHT: int = 768
@@ -60,40 +101,4 @@ LARGE_PADDING: int = 20
 
 # Re-exporting from ui_theme for convenience if needed,
 # though direct imports from ui_theme in other modules are cleaner.
-from .ui_theme import (
-    FONT_XLARGE,
-    FONT_LARGE,
-    FONT_MEDIUM,
-    FONT_SMALL,
-    FONT_XSMALL,
-    FONT_LARGE_BOLD,
-    RICH_BLACK,
-    OXFORD_BLUE,
-    YALE_BLUE,
-    SILVER_LAKE_BLUE,
-    PLATINUM,
-    GHOST_WHITE,
-    IMPERIAL_RED,
-    EMERALD_GREEN,
-    GOLDEN_YELLOW,
-    NEON_BLUE,
-    DARK_GREY,
-    MEDIUM_GREY,
-    LIGHT_GREY,
-    VERY_LIGHT_GREY,
-    BUTTON_COLOR,
-    BUTTON_HOVER_COLOR,
-    BUTTON_DISABLED_COLOR,
-    BUTTON_TEXT_COLOR,
-    BUTTON_DISABLED_TEXT_COLOR,
-    TEXT_COLOR,
-    TEXT_INPUT_BG_COLOR,
-    TEXT_INPUT_BORDER_COLOR,
-    TEXT_INPUT_TEXT_COLOR,
-    HUD_BACKGROUND_COLOR,
-    HUD_TEXT_COLOR,
-    HUD_ACCENT_COLOR,
-    draw_text,
-    draw_panel,
-    draw_input_box,
-)
+# This block is now at the top.

@@ -2,30 +2,30 @@
 """
 Handles drawing the Upgrades view.
 """
-import pygame
 from typing import List, TYPE_CHECKING
 
+import pygame
+
 if TYPE_CHECKING:
-    from core.player_inventory import PlayerInventory
+    from ...core.player_inventory import PlayerInventory  # Corrected relative import
+    # from game_state import GameState
+    # from game_configs import GameConfigs
 
-    # from game_state import GameState # Not directly used here
-    # from game_configs import GameConfigs # Passed as game_configs_data
-
-from ..ui_theme import (
+from ..ui_components import Button
+from ..ui_theme import (  # Alphabetized
+    EMERALD_GREEN,
     FONT_LARGE,
     FONT_MEDIUM,
     FONT_MEDIUM_BOLD,
     FONT_SMALL,
+    GOLDEN_YELLOW,
+    IMPERIAL_RED,
+    LIGHT_GREY,
+    PLATINUM,
     TEXT_COLOR,
     YALE_BLUE,
-    IMPERIAL_RED,
-    GOLDEN_YELLOW,
-    PLATINUM,
-    LIGHT_GREY,
-    EMERALD_GREEN,
     draw_text,
 )
-from ..ui_components import Button
 
 SCREEN_WIDTH = 1024
 UPGRADE_ITEM_X_START = 50

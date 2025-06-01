@@ -2,20 +2,21 @@
 """
 Handles drawing the Main Menu view.
 """
-import pygame
 from typing import List
 
-from ..ui_theme import (
+import pygame
+
+from ..ui_components import Button
+from ..ui_theme import (  # Alphabetized
     FONT_LARGE,
     FONT_MEDIUM,
-    YALE_BLUE,
-    PLATINUM,
     GOLDEN_YELLOW,
-    SILVER_LAKE_BLUE,
     OXFORD_BLUE,
+    PLATINUM,
+    SILVER_LAKE_BLUE,
+    YALE_BLUE,
     draw_text,
 )
-from ..ui_components import Button
 
 SCREEN_WIDTH = 1024
 SCREEN_HEIGHT = 768

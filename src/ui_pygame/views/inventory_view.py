@@ -2,32 +2,31 @@
 """
 Handles drawing the Inventory view.
 """
-import pygame
 from typing import List, TYPE_CHECKING
+
+import pygame
 
 if TYPE_CHECKING:
     from ...core.player_inventory import PlayerInventory
+    # from game_state import GameState # If specific parts of game_state are needed
 
-    # from game_state import GameState # If specific parts of game_state are needed beyond what's passed
-
-from ...core.enums import CryptoCoin  # Assuming this is used for crypto display
-
-from ..ui_theme import (
+from ...core.enums import CryptoCoin
+from ..ui_components import Button
+from ..ui_theme import (  # Alphabetized
     FONT_LARGE,
     FONT_MEDIUM,
     FONT_MEDIUM_BOLD,
     FONT_SMALL,
     FONT_XSMALL,
-    YALE_BLUE,
-    PLATINUM,
     GOLDEN_YELLOW,
-    TEXT_COLOR,
-    NEON_BLUE,
-    MEDIUM_GREY,
     LIGHT_GREY,
+    MEDIUM_GREY,
+    NEON_BLUE,
+    PLATINUM,
+    TEXT_COLOR,
+    YALE_BLUE,
     draw_text,
 )
-from ..ui_components import Button
 
 SCREEN_WIDTH = 1024  # Consider moving to shared constants
 

@@ -4,23 +4,21 @@ Split from app.py for modularity.
 """
 
 import functools
+import math # Added for math.ceil
 import random
 from typing import Any
-from .. import game_configs
-from .ui_hud import (
-    show_event_message as show_event_message_external,
-    add_message_to_log,
-)
-from .ui_components import Button
-from ..core.enums import DrugName, DrugQuality, RegionName, CryptoCoin
+
+# Third-party imports (none in this file)
+
+# Local application imports
+from .. import game_configs # Keep one import for game_configs
+from ..core.enums import CryptoCoin, DrugName, DrugQuality, RegionName, SkillID
 from ..core.player_inventory import PlayerInventory
 from ..core.region import Region
-from ..mechanics import market_impact, event_manager
-from ..core.enums import SkillID  # Added for skill logic
-from .. import (
-    game_configs as game_configs_module,
-)  # For direct access to constants like COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT
-import math  # Added for math.ceil
+from ..mechanics import event_manager, market_impact
+# from .ui_components import Button  # Unused at module level
+from .ui_hud import add_message_to_log, show_event_message as show_event_message_external
+
 
 # All action functions will be moved here from app.py
 # This file will be filled in the next step.
@@ -180,7 +178,7 @@ def action_confirm_transaction(
                 SkillID.COMPARTMENTALIZATION.value in player_inv.unlocked_skills
             ):  # Use .value for enum comparison if unlocked_skills stores strings
                 reduction = (
-                    game_configs_module.COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT
+                    game_configs.COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT
                 )
                 original_heat = total_heat
                 total_heat *= 1 - reduction

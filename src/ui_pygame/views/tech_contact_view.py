@@ -2,38 +2,38 @@
 """
 Handles drawing the Tech Contact view and its sub-views for coin selection and amount input.
 """
+from typing import Dict, List, Optional, TYPE_CHECKING
+
 import pygame
-from typing import List, Dict, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...core.player_inventory import PlayerInventory
-    from ...core.region import Region
+    # from ...core.region import Region  # Unused in this file
     from ...game_state import GameState
     from ...game_configs import GameConfigs
 
 from ...core.enums import CryptoCoin
-
-from ..ui_theme import (
+from ..ui_components import Button
+from ..ui_theme import (  # Alphabetized
+    EMERALD_GREEN,
     FONT_LARGE,
     FONT_MEDIUM,
     FONT_SMALL,
     FONT_XSMALL,
-    YALE_BLUE,
+    GOLDEN_YELLOW,
+    IMPERIAL_RED,
+    LIGHT_GREY,
+    MEDIUM_GREY,
+    NEON_BLUE,
     PLATINUM,
     TEXT_COLOR,
-    NEON_BLUE,
-    MEDIUM_GREY,
-    LIGHT_GREY,
-    IMPERIAL_RED,
-    EMERALD_GREEN,
-    GOLDEN_YELLOW,
-    TEXT_INPUT_TEXT_COLOR,
     TEXT_INPUT_BG_COLOR,
     TEXT_INPUT_BORDER_COLOR,
-    draw_text,
+    TEXT_INPUT_TEXT_COLOR,
+    YALE_BLUE,
     draw_input_box,
+    draw_text,
 )
-from ..ui_components import Button
 
 SCREEN_WIDTH = 1024
 SCREEN_HEIGHT = 768

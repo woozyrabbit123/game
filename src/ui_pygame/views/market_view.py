@@ -2,38 +2,38 @@
 """
 Handles drawing the Market view and related transaction input popups.
 """
-import pygame
-from typing import List, Optional, Dict, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from ...core.enums import DrugName, DrugQuality
+import pygame
 
 if TYPE_CHECKING:
     from ...core.player_inventory import PlayerInventory
     from ...core.region import Region
 
-from ..ui_theme import (
+from ...core.enums import DrugName, DrugQuality
+from ..ui_components import Button
+from ..ui_theme import (  # Alphabetized, draw_panel removed
+    DARK_GREY,
+    EMERALD_GREEN,
     FONT_LARGE,
     FONT_MEDIUM,
     FONT_SMALL,
     FONT_XSMALL,
-    YALE_BLUE,
-    PLATINUM,
-    TEXT_COLOR,
-    MEDIUM_GREY,
-    EMERALD_GREEN,
+    GHOST_WHITE,
+    GOLDEN_YELLOW,
     IMPERIAL_RED,
-    TEXT_INPUT_TEXT_COLOR,
+    MEDIUM_GREY,
+    OXFORD_BLUE,
+    PLATINUM,
+    SILVER_LAKE_BLUE,
+    TEXT_COLOR,
     TEXT_INPUT_BG_COLOR,
     TEXT_INPUT_BORDER_COLOR,
-    SILVER_LAKE_BLUE,
-    GOLDEN_YELLOW,
-    OXFORD_BLUE,
-    DARK_GREY,
-    GHOST_WHITE,
-    draw_text,
+    TEXT_INPUT_TEXT_COLOR,
+    YALE_BLUE,
     draw_input_box,
+    draw_text,
 )
-from ..ui_components import Button
 
 SCREEN_WIDTH = 1024
 SCREEN_HEIGHT = 768
