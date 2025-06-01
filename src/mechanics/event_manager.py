@@ -8,33 +8,31 @@ This module includes functions to:
 - Handle specific player-affecting events like muggings or forced sales.
 """
 
-import random
 import math
-from typing import List, Optional, Callable, Any, Union, Tuple
-from enum import Enum  # Added Enum for isinstance checks
+import random
+import sys  # For stderr logging
+from enum import Enum
+from typing import Any, Callable, List, Optional, Tuple, Union
 
-from ..core.region import Region
-from ..core.market_event import MarketEvent
-from ..core.enums import DrugQuality, DrugName, EventType, SkillID
-from ..core.player_inventory import PlayerInventory
-from ..core.ai_rival import AIRival
-import sys # For stderr logging
-
-# It's better to import GameState if it's going to be used as a type hint
-from ..game_state import GameState  # Import GameState
 from .. import game_configs
+from ..core.ai_rival import AIRival
+from ..core.enums import DrugName, DrugQuality, EventType  # SkillID removed
+from ..core.market_event import MarketEvent
+from ..core.player_inventory import PlayerInventory
+from ..core.region import Region
+from ..game_state import GameState
+# Specific config imports - these are numerous, consider accessing via game_configs object
 from ..game_configs import (
+    EVENT_TIER_TARGET_CHEAP_STASH,
     EVENT_TIER_TARGET_DEMAND_SPIKE,
     EVENT_TIER_TARGET_SUPPLY_DISRUPTION,
-    EVENT_TIER_TARGET_CHEAP_STASH,
     EVENT_TIER_TARGET_THE_SETUP,
+    FORCED_SALE_MIN_PRICE_PER_UNIT,  # Added based on usage
+    FORCED_SALE_MIN_QUANTITY_TO_SELL,  # Added based on usage
     MARKET_EVENT_WEIGHTS,
     SETUP_EVENT_MIN_CASH_FACTOR_FOR_BUY_DEAL,
-    SETUP_EVENT_MIN_QUANTITY_FACTOR_FOR_SELL_DEAL,
     SETUP_EVENT_MIN_PRICE_PER_UNIT,
-    FORCED_SALE_MIN_QUANTITY_TO_SELL,
-    FORCED_SALE_MIN_PRICE_PER_UNIT,
-    # MUGGING_CASH_LOSS_PERCENT_MIN and _MAX are accessed via game_configs_data parameter
+    SETUP_EVENT_MIN_QUANTITY_FACTOR_FOR_SELL_DEAL,
 )
 
 

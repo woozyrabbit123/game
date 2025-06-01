@@ -3,11 +3,16 @@ UI setup and button setup functions for Project Narco-Syndicate Pygame UI.
 Split from app.py for modularity.
 """
 
-from .ui_components import Button
+from typing import Any
+
+# Third-party imports (none)
+
+# Local application imports
+from ..core.enums import SkillID
 from ..core.player_inventory import PlayerInventory
 from ..core.region import Region
-from ..core.enums import SkillID  # Added for skill buttons
-from typing import Any
+from .ui_components import Button
+
 
 # All setup_buttons and related UI setup functions will be moved here from app.py
 # This file will be filled in the next step.

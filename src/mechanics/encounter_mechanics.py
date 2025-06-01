@@ -4,15 +4,15 @@ Core mechanics for player encounters, such as police stops.
 This module centralizes the logic for determining encounter chances,
 bribe outcomes, and search results, separating it from UI-specific presentation.
 """
-import random
 import math
-from typing import Optional, Dict, List, Any, Tuple
+import random
+from typing import Any, Dict, List, Optional, Tuple
 
-from ..core.enums import DrugName, DrugQuality # Add other enums as needed
+from .. import game_configs
+from ..core.enums import DrugName, DrugQuality
 from ..core.player_inventory import PlayerInventory
 from ..core.region import Region
 from ..game_state import GameState
-from .. import game_configs
 
 
 def calculate_police_encounter_chance(region: Region, game_configs_data: Any) -> float:

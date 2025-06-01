@@ -2,19 +2,20 @@
 """
 Handles drawing the Police Stop Event view.
 """
-import pygame
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
-from ..ui_theme import (
+import pygame
+
+from ..ui_components import Button
+from ..ui_theme import (  # Alphabetized
     FONT_LARGE,
     FONT_MEDIUM,
     FONT_SMALL,
-    YALE_BLUE,
-    PLATINUM,
     IMPERIAL_RED,
+    PLATINUM,
+    YALE_BLUE,
     draw_text,
 )
-from ..ui_components import Button
 
 SCREEN_WIDTH = 1024  # Consider shared constants
 

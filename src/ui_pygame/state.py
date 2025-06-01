@@ -3,11 +3,16 @@ State and global variables for Project Narco-Syndicate Pygame UI.
 Split from app.py for modularity.
 """
 
-from typing import Optional, Dict, List, Any
-from .ui_components import Button
-from ..core.enums import DrugName, DrugQuality, RegionName, CryptoCoin
+from typing import Any, Dict, List, Optional
+
+# Third-party imports (none)
+
+# Local application imports
+from ..core.enums import CryptoCoin, DrugName, DrugQuality # RegionName removed
 from ..core.player_inventory import PlayerInventory
-from ..core.region import Region
+# from ..core.region import Region # Region removed
+from .ui_components import Button
+
 
 # --- Game State & UI Variables ---
 current_view: str = "main_menu"

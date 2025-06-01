@@ -2,26 +2,26 @@
 """
 Handles drawing the Informant interaction view.
 """
-import pygame
 from typing import List, TYPE_CHECKING
+
+import pygame
 
 if TYPE_CHECKING:
     from ...core.player_inventory import PlayerInventory
-
     # from game_configs import GameConfigs # Passed as game_configs_data
 
-from ..ui_theme import (
+from ..ui_components import Button
+from ..ui_theme import (  # Alphabetized
     FONT_LARGE,
     FONT_MEDIUM,
     FONT_SMALL,
-    YALE_BLUE,
-    PLATINUM,
-    TEXT_COLOR,
     GOLDEN_YELLOW,
     LIGHT_GREY,
+    PLATINUM,
+    TEXT_COLOR,
+    YALE_BLUE,
     draw_text,
 )
-from ..ui_components import Button
 
 SCREEN_WIDTH = 1024  # Consider shared constants
 

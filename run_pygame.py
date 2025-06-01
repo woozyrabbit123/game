@@ -6,6 +6,8 @@ This script launches the pygame-based graphical interface.
 
 import sys
 from pathlib import Path
+import traceback # Will remove if not needed after logging changes
+from src.utils.logger import get_logger
 
 # Add project root to Python path
 project_root = Path(__file__).parent.absolute()
@@ -19,8 +21,10 @@ from src.game_state import GameState  # Updated import
 import src.game_configs as game_configs
 
 
+logger = get_logger(__name__)
+
 def main():
-    print("Starting Project Narco-Syndicate (Pygame UI)...")
+    logger.info("Starting Project Narco-Syndicate (Pygame UI)...")
 
     # Initialize core game components
     player_inv = PlayerInventory()
@@ -75,8 +79,8 @@ def main():
 
     if not current_region_instance:
         # This should ideally not happen if initial_region_name is valid and regions are initialized.
-        print(
-            f"Fatal Error: Initial region {initial_region_name.value} could not be set or found. Exiting."
+        logger.critical(
+            f"Initial region {initial_region_name.value} could not be set or found. Exiting."
         )
         sys.exit(1)
 
@@ -84,18 +88,17 @@ def main():
     try:
         from src.ui_pygame.app import game_loop
 
-        print("Launching game window...")
+        logger.info("Launching game window...")
         # Pass the GameState instance to the game_loop
         game_loop(
             player_inv, current_region_instance, game_state_instance, game_configs
         )
     except ImportError as e:
-        print(f"Pygame UI module not found or Pygame not installed correctly: {e}")
+        logger.error(f"Pygame UI module not found or Pygame not installed correctly: {e}")
     except Exception as e:
-        print(f"An error occurred while running the Pygame UI: {e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception(f"An error occurred while running the Pygame UI: {e}")
+        # import traceback # No longer needed
+        # traceback.print_exc() # No longer needed
 
 
 if __name__ == "__main__":

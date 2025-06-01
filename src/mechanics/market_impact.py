@@ -10,14 +10,14 @@ This module includes functions to:
 """
 
 import random
-from typing import Dict, Optional, Callable, Any, TYPE_CHECKING, cast  # Added cast
 from enum import Enum  # Added Enum for isinstance checks
+from typing import Any, Callable, Dict, Optional  # TYPE_CHECKING, cast, RegionName removed
 
-from ..core.region import Region
-from ..core.ai_rival import AIRival
-from ..core.enums import DrugName, RegionName, SkillID
-from ..core.player_inventory import PlayerInventory
 from .. import game_configs # Import the whole module to access its attributes
+from ..core.ai_rival import AIRival
+from ..core.enums import DrugName, SkillID # RegionName removed
+from ..core.player_inventory import PlayerInventory
+from ..core.region import Region
 
 
 def apply_player_buy_impact(

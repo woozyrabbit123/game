@@ -2,27 +2,24 @@
 """
 Handles drawing the Travel view.
 """
-import pygame
 from typing import List, TYPE_CHECKING
 
+import pygame
+
 if TYPE_CHECKING:
-    from core.player_inventory import (
-        PlayerInventory,
-    )  # Not directly used in drawing, but good for context
-    from core.region import Region
+    # from ...core.player_inventory import PlayerInventory # Unused as arg type
+    from ...core.region import Region
 
-    # from game_state import GameState # If specific parts of game_state are needed
-
-from ..ui_theme import (
+from .. import game_configs # Moved to top
+from ..ui_components import Button
+from ..ui_theme import ( # Alphabetized, LIGHT_GREY removed
     FONT_LARGE,
     FONT_MEDIUM,
-    YALE_BLUE,
-    LIGHT_GREY,
-    PLATINUM,
     GOLDEN_YELLOW,
+    PLATINUM,
+    YALE_BLUE,
     draw_text,
 )
-from ..ui_components import Button
 
 SCREEN_WIDTH = 1024  # Consider moving to shared constants
 
@@ -30,9 +27,7 @@ SCREEN_WIDTH = 1024  # Consider moving to shared constants
 def draw_travel_view(
     surface: pygame.Surface,
     current_region_data: "Region",
-    # player_inventory_data: 'PlayerInventory', # Not directly used in this drawing function
-    # game_state_data: any, # Not directly used in this drawing function
-    travel_buttons: List[Button],  # Contains buttons for destinations + Back button
+    travel_buttons: List[Button],
 ):
     # Clear background with gradient effect
     surface.fill((5, 15, 30))  # Dark blue background
@@ -100,7 +95,7 @@ def draw_travel_view(
     )
 
     # Display travel cost
-    from .. import game_configs  # Ensure game_configs is imported
+    # from .. import game_configs # Moved to top
 
     travel_cost_text = f"(Travel Cost: ${game_configs.TRAVEL_COST_CASH})"
     draw_text(

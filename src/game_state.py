@@ -11,12 +11,15 @@ import random
 from typing import Dict, List, Optional, Any, Tuple
 
 from .core.enums import CryptoCoin, DrugQuality, DrugName, RegionName  # Added DrugName
+from src.utils.logger import get_logger
 from .core.ai_rival import AIRival
 from .core.region import (
     Region,
 )  # Assuming Region class has a 'name' attribute and a 'to_dict()' method
 from . import game_configs
 
+
+logger = get_logger(__name__)
 
 class GameState:
     """
@@ -58,14 +61,14 @@ class GameState:
         if hasattr(game_configs, "CRYPTO_PRICES_INITIAL") and isinstance(game_configs.CRYPTO_PRICES_INITIAL, dict):
             for coin_enum, price in game_configs.CRYPTO_PRICES_INITIAL.items():
                 if not isinstance(coin_enum, CryptoCoin):
-                    print(f"Warning: Invalid key in CRYPTO_PRICES_INITIAL: {coin_enum}. Expected CryptoCoin enum. Skipping.")
+                    logger.warning(f"Invalid key in CRYPTO_PRICES_INITIAL: {coin_enum}. Expected CryptoCoin enum. Skipping.")
                     continue
                 if not isinstance(price, (int, float)):
-                    print(f"Warning: Invalid price value for {coin_enum.value} in CRYPTO_PRICES_INITIAL: {price}. Expected number. Skipping.")
+                    logger.warning(f"Invalid price value for {coin_enum.value} in CRYPTO_PRICES_INITIAL: {price}. Expected number. Skipping.")
                     continue
                 self.current_crypto_prices[coin_enum] = float(price)
         else:
-            print("Error: CRYPTO_PRICES_INITIAL not found in game_configs or is not a dictionary. Crypto prices not initialized.")
+            logger.error("CRYPTO_PRICES_INITIAL not found in game_configs or is not a dictionary. Crypto prices not initialized.")
             # Optionally, populate with some hardcoded emergency defaults or raise error
             # For example: self.current_crypto_prices = {CryptoCoin.BITCOIN: 100.0}
 
@@ -85,15 +88,15 @@ class GameState:
         """
         self.current_crypto_prices = {} # Clear before setting
         if not isinstance(initial_prices, dict):
-            print(f"Error: initialize_crypto_prices expects a dictionary, got {type(initial_prices)}. Prices not set.")
+            logger.error(f"initialize_crypto_prices expects a dictionary, got {type(initial_prices)}. Prices not set.")
             return
 
         for coin_enum, price in initial_prices.items():
             if not isinstance(coin_enum, CryptoCoin):
-                print(f"Warning: Invalid key in provided initial_prices: {coin_enum}. Expected CryptoCoin enum. Skipping.")
+                logger.warning(f"Invalid key in provided initial_prices: {coin_enum}. Expected CryptoCoin enum. Skipping.")
                 continue
             if not isinstance(price, (int, float)):
-                print(f"Warning: Invalid price value for {coin_enum.value} in provided initial_prices: {price}. Expected number. Skipping.")
+                logger.warning(f"Invalid price value for {coin_enum.value} in provided initial_prices: {price}. Expected number. Skipping.")
                 continue
             self.current_crypto_prices[coin_enum] = float(price)
 
@@ -114,8 +117,8 @@ class GameState:
             min_prices_map: A dictionary mapping CryptoCoin enums to their minimum possible price (float).
         """
         if not self.current_crypto_prices:
-            print(
-                "Warning: Crypto prices were not initialized before update. Initializing with defaults."
+            logger.warning(
+                "Crypto prices were not initialized before update. Initializing with defaults."
             )
             self.current_crypto_prices = game_configs.CRYPTO_PRICES_INITIAL.copy()
 
@@ -142,265 +145,47 @@ class GameState:
     def _initialize_world_regions(self) -> None:
         """
         Initializes all game regions, including their names and drug markets.
-        TODO: Move region_definitions to game_configs.py for better modularity and easier modification.
+        Region definitions are now loaded from game_configs.
         """
-        import sys # For stderr
-        print("Warning: Region definitions are currently hardcoded in GameState._initialize_world_regions. Consider moving to game_configs.py.", file=sys.stderr)
-
-        # Region definitions, including available drugs, their base prices, demand factors,
-        # and initial stock ranges for different qualities, are configured here.
-        This method populates the `self.all_regions` dictionary.
-        """
-        # Structure: (RegionName Enum, String Name, List of DrugDefinitionTuple)
-        # DrugDefinitionTuple: (DrugName str, BasePrice, MaxPrice, DemandFactor, QualitiesStockRanges)
-        # QualitiesStockRanges: {DrugQuality_Enum: (min_stock, max_stock)}
-        DrugDefinitionTuple = Tuple[
-            str, int, int, int, Dict[DrugQuality, Tuple[int, int]]
-        ]
-        RegionDefinitionTuple = Tuple[RegionName, str, List[DrugDefinitionTuple]]
-
-        region_definitions: List[RegionDefinitionTuple] = [
-            (
-                RegionName.DOWNTOWN,
-                RegionName.DOWNTOWN.value,
-                [
-                    (
-                        "Weed",
-                        50,
-                        80,
-                        1,
-                        {DrugQuality.STANDARD: (100, 200)},
-                    ),  # DrugName will be converted to Enum or used as str
-                    (
-                        "Pills",
-                        100,
-                        150,
-                        2,
-                        {DrugQuality.STANDARD: (40, 80), DrugQuality.CUT: (60, 120)},
-                    ),
-                    (
-                        "Coke",
-                        1000,
-                        1500,
-                        3,
-                        {
-                            DrugQuality.PURE: (10, 25),
-                            DrugQuality.STANDARD: (15, 50),
-                            DrugQuality.CUT: (20, 60),
-                        },
-                    ),
-                ],
-            ),
-            (
-                RegionName.DOCKS,
-                RegionName.DOCKS.value,
-                [
-                    ("Weed", 40, 70, 1, {DrugQuality.STANDARD: (100, 300)}),
-                    (
-                        "Speed",
-                        120,
-                        180,
-                        2,
-                        {DrugQuality.STANDARD: (30, 90), DrugQuality.CUT: (50, 100)},
-                    ),
-                    (
-                        "Heroin",
-                        600,
-                        900,
-                        3,
-                        {DrugQuality.PURE: (5, 15), DrugQuality.STANDARD: (10, 30)},
-                    ),
-                ],
-            ),
-            (
-                RegionName.SUBURBS,
-                RegionName.SUBURBS.value,
-                [
-                    ("Weed", 60, 100, 1, {DrugQuality.STANDARD: (20, 60)}),
-                    (
-                        "Pills",
-                        110,
-                        170,
-                        2,
-                        {DrugQuality.STANDARD: (20, 50), DrugQuality.PURE: (5, 15)},
-                    ),
-                ],
-            ),
-            (
-                RegionName.INDUSTRIAL,
-                RegionName.INDUSTRIAL.value,
-                [
-                    ("Weed", 45, 75, 1, {DrugQuality.STANDARD: (150, 250)}),
-                    (
-                        "Speed",
-                        110,
-                        170,
-                        2,
-                        {
-                            DrugQuality.STANDARD: (40, 100),
-                            DrugQuality.CUT: (60, 140),
-                            DrugQuality.PURE: (10, 30),
-                        },
-                    ),
-                    (
-                        "Coke",
-                        950,
-                        1400,
-                        3,
-                        {
-                            DrugQuality.PURE: (8, 20),
-                            DrugQuality.STANDARD: (12, 40),
-                            DrugQuality.CUT: (18, 55),
-                        },
-                    ),
-                ],
-            ),
-            (
-                RegionName.COMMERCIAL,
-                RegionName.COMMERCIAL.value,
-                [
-                    ("Weed", 55, 90, 1, {DrugQuality.STANDARD: (80, 150)}),
-                    (
-                        "Pills",
-                        105,
-                        160,
-                        2,
-                        {
-                            DrugQuality.STANDARD: (25, 60),
-                            DrugQuality.PURE: (8, 20),
-                            DrugQuality.CUT: (40, 80),
-                        },
-                    ),
-                    (
-                        "Heroin",
-                        580,
-                        850,
-                        3,
-                        {
-                            DrugQuality.PURE: (3, 12),
-                            DrugQuality.STANDARD: (8, 25),
-                            DrugQuality.CUT: (15, 40),
-                        },
-                    ),
-                ],
-            ),
-            (
-                RegionName.UNIVERSITY_HILLS,
-                RegionName.UNIVERSITY_HILLS.value,
-                [
-                    ("Weed", 70, 110, 1, {DrugQuality.STANDARD: (50, 100)}),
-                    (
-                        "Pills",
-                        120,
-                        180,
-                        2,
-                        {DrugQuality.STANDARD: (30, 60), DrugQuality.PURE: (10, 20)},
-                    ),
-                    (
-                        "Speed",
-                        130,
-                        190,
-                        2,
-                        {DrugQuality.CUT: (40, 80), DrugQuality.STANDARD: (20, 50)},
-                    ),
-                ],
-            ),
-            (
-                RegionName.RIVERSIDE,
-                RegionName.RIVERSIDE.value,
-                [
-                    ("Weed", 40, 65, 1, {DrugQuality.STANDARD: (120, 250)}),
-                    (
-                        "Heroin",
-                        550,
-                        800,
-                        3,
-                        {DrugQuality.STANDARD: (10, 25), DrugQuality.CUT: (15, 35)},
-                    ),
-                ],
-            ),
-            (
-                RegionName.AIRPORT_DISTRICT,
-                RegionName.AIRPORT_DISTRICT.value,
-                [
-                    (
-                        "Coke",
-                        1100,
-                        1600,
-                        3,
-                        {DrugQuality.PURE: (15, 30), DrugQuality.STANDARD: (20, 40)},
-                    ),
-                    (
-                        "Speed",
-                        150,
-                        220,
-                        2,
-                        {DrugQuality.PURE: (20, 40), DrugQuality.STANDARD: (30, 60)},
-                    ),
-                ],
-            ),
-            (
-                RegionName.OLD_TOWN,
-                RegionName.OLD_TOWN.value,
-                [
-                    (
-                        "Pills",
-                        90,
-                        140,
-                        2,
-                        {DrugQuality.STANDARD: (50, 100), DrugQuality.CUT: (70, 130)},
-                    ),
-                    (
-                        "Heroin",
-                        620,
-                        920,
-                        3,
-                        {
-                            DrugQuality.CUT: (20, 50),
-                            DrugQuality.STANDARD: (10, 30),
-                            DrugQuality.PURE: (5, 10),
-                        },
-                    ),
-                ],
-            ),
-        ]
+        # The large region_definitions list and its type aliases (DrugDefinitionTuple, RegionDefinitionTuple)
+        # have been moved to game_configs.py
 
         self.all_regions: Dict[RegionName, Region] = {}  # Clear any existing regions
-        for region_idx, region_data_tuple in enumerate(region_definitions):
+        for region_idx, region_data_tuple in enumerate(game_configs.REGION_DEFINITIONS):
             try:
                 if len(region_data_tuple) != 3:
-                    print(f"Warning: Malformed region definition at index {region_idx}. Expected 3 elements, got {len(region_data_tuple)}. Skipping.", file=sys.stderr)
+                    logger.warning(f"Malformed region definition at index {region_idx}. Expected 3 elements, got {len(region_data_tuple)}. Skipping.")
                     continue
 
                 region_enum, region_name_str, drugs_data = region_data_tuple
 
                 if not isinstance(region_enum, RegionName):
-                     print(f"Warning: Invalid RegionName enum for entry {region_idx} ('{region_name_str}'). Skipping.", file=sys.stderr)
+                     logger.warning(f"Invalid RegionName enum for entry {region_idx} ('{region_name_str}'). Skipping.")
                      continue
                 if not isinstance(region_name_str, str):
-                    print(f"Warning: Region name for {region_enum.value} is not a string. Skipping.", file=sys.stderr)
+                    logger.warning(f"Region name for {region_enum.value} is not a string. Skipping.")
                     continue
                 if not isinstance(drugs_data, list):
-                    print(f"Warning: Drugs data for {region_name_str} is not a list. Skipping drug initialization for this region.", file=sys.stderr)
+                    logger.warning(f"Drugs data for {region_name_str} is not a list. Skipping drug initialization for this region.")
                     drugs_data = [] # Process region with no drugs
 
                 try:
                     region: Region = Region(region_name_str)
                 except ValueError as e_region_name:
-                    print(f"Warning: Could not initialize region with name '{region_name_str}' due to invalid RegionName enum value. Error: {e_region_name}. Skipping.", file=sys.stderr)
+                    logger.warning(f"Could not initialize region with name '{region_name_str}' due to invalid RegionName enum value. Error: {e_region_name}. Skipping.")
                     continue
 
             except (TypeError, ValueError, IndexError) as e_region_unpack: # Catch errors from unpacking region_data_tuple
-                print(f"Error unpacking region definition at index {region_idx}: '{region_data_tuple}'. Error: {e_region_unpack}. Skipping.", file=sys.stderr)
+                logger.error(f"Error unpacking region definition at index {region_idx}: '{region_data_tuple}'. Error: {e_region_unpack}. Skipping.")
                 continue
             except Exception as e_outer:
-                print(f"Error processing region definition at index {region_idx}: {region_data_tuple}. Error: {e_outer}. Skipping.", file=sys.stderr)
+                logger.error(f"Error processing region definition at index {region_idx}: {region_data_tuple}. Error: {e_outer}. Skipping.")
                 continue
 
             for drug_idx, drug_def_tuple in enumerate(drugs_data):
                 try:
                     if len(drug_def_tuple) != 5:
-                        print(f"Warning: Malformed drug definition for region {region_name_str} at drug index {drug_idx}. Expected 5 elements, got {len(drug_def_tuple)}. Skipping this drug.", file=sys.stderr)
+                        logger.warning(f"Malformed drug definition for region {region_name_str} at drug index {drug_idx}. Expected 5 elements, got {len(drug_def_tuple)}. Skipping this drug.")
                         continue
 
                     drug_name_str, base_price, max_price, demand_factor, qualities_stock_ranges = drug_def_tuple
@@ -410,14 +195,14 @@ class GameState:
                        not isinstance(max_price, (int, float)) or \
                        not isinstance(demand_factor, int) or \
                        not isinstance(qualities_stock_ranges, dict):
-                        print(f"Warning: Type mismatch in drug definition fields for '{drug_name_str}' in region {region_name_str}. Skipping this drug.", file=sys.stderr)
+                        logger.warning(f"Type mismatch in drug definition fields for '{drug_name_str}' in region {region_name_str}. Skipping this drug.")
                         continue
 
                     # Validate DrugName (Region.initialize_drug_market will also do this, but good for early catch)
                     try:
                         DrugName(drug_name_str)
                     except ValueError:
-                        print(f"Warning: Invalid drug name string '{drug_name_str}' in region {region_name_str}. Skipping this drug.", file=sys.stderr)
+                        logger.warning(f"Invalid drug name string '{drug_name_str}' in region {region_name_str}. Skipping this drug.")
                         continue
 
                     quality_stock_map: Dict[DrugQuality, int] = {}
@@ -425,11 +210,11 @@ class GameState:
                         if not isinstance(quality_enum, DrugQuality) or \
                            not (isinstance(stock_range_tuple, tuple) and len(stock_range_tuple) == 2 and \
                                 isinstance(stock_range_tuple[0], int) and isinstance(stock_range_tuple[1], int)):
-                            print(f"Warning: Malformed quality_stock_ranges for drug '{drug_name_str}', quality '{quality_enum}' in region {region_name_str}. Skipping this quality.", file=sys.stderr)
+                            logger.warning(f"Malformed quality_stock_ranges for drug '{drug_name_str}', quality '{quality_enum}' in region {region_name_str}. Skipping this quality.")
                             continue
                         min_val, max_val = stock_range_tuple
                         if min_val < 0 or max_val < 0 or min_val > max_val : # Added more checks for stock validity
-                             print(f"Warning: Invalid min/max stock ({min_val},{max_val}) for drug '{drug_name_str}', quality '{quality_enum}' in region {region_name_str}. Using (0,0).", file=sys.stderr)
+                             logger.warning(f"Invalid min/max stock ({min_val},{max_val}) for drug '{drug_name_str}', quality '{quality_enum}' in region {region_name_str}. Using (0,0).")
                              min_val, max_val = 0,0 # Corrected to assign 0,0
                         quality_stock_map[quality_enum] = random.randint(min_val, max_val)
 
@@ -441,10 +226,10 @@ class GameState:
                         quality_stock_map,
                     )
                 except (TypeError, ValueError, IndexError) as e_drug: # Catch errors from unpacking or processing drug_def_tuple
-                    print(f"Error processing drug definition tuple '{drug_def_tuple}' in region {region_name_str}. Error: {e_drug}. Skipping this drug.", file=sys.stderr)
+                    logger.error(f"Error processing drug definition tuple '{drug_def_tuple}' in region {region_name_str}. Error: {e_drug}. Skipping this drug.")
                     continue
                 except Exception as e_drug_other:
-                     print(f"Unexpected error processing drug definition '{drug_def_tuple}' in region {region_name_str}. Error: {e_drug_other}. Skipping this drug.", file=sys.stderr)
+                     logger.error(f"Unexpected error processing drug definition '{drug_def_tuple}' in region {region_name_str}. Error: {e_drug_other}. Skipping this drug.")
                      continue
             self.all_regions[region_enum] = region
 
@@ -478,8 +263,8 @@ class GameState:
             if hasattr(region_obj, "restock_market"):  # Check if method exists
                 region_obj.restock_market()
             else:
-                print(
-                    f"Warning: Region {region_obj.name} does not have a restock_market method."
+                logger.warning(
+                    f"Region {region_obj.name} does not have a restock_market method."
                 )
 
     def set_current_player_region(self, region_name: RegionName) -> None:
@@ -493,8 +278,8 @@ class GameState:
             self.current_player_region = self.all_regions[region_name]
         else:
             # This could raise an error or log a warning, depending on desired strictness
-            print(
-                f"Warning: Attempted to set current region to an unknown or uninitialized region: {region_name}"
+            logger.warning(
+                f"Attempted to set current region to an unknown or uninitialized region: {region_name}"
             )
 
     def get_current_player_region(self) -> Optional[Region]:
@@ -565,8 +350,8 @@ if __name__ == "__main__":
     start_region_enum: RegionName = RegionName.DOWNTOWN
     game.set_current_player_region(start_region_enum)
 
-    print(f"--- Initial Game State ---")
-    print(f"Current day: {game.current_day}")
+    logger.info(f"--- Initial Game State ---")
+    logger.info(f"Current day: {game.current_day}")
 
     player_region: Optional[Region] = game.get_current_player_region()
     if player_region:  # Check if a region is set
@@ -576,11 +361,11 @@ if __name__ == "__main__":
             if hasattr(player_region.name, "value")
             else str(player_region.name)
         )
-        print(f"Current player region: {player_region_name_val}")
+        logger.info(f"Current player region: {player_region_name_val}")
     else:
-        print("Current player region: None")
+        logger.info("Current player region: None")
 
-    print(f"Crypto prices: {game.current_crypto_prices}")
+    logger.info(f"Crypto prices: {game.current_crypto_prices}")
 
     # Simulate advancing a day and updating crypto prices
     game.current_day += 1
@@ -593,28 +378,28 @@ if __name__ == "__main__":
             game_configs.CRYPTO_VOLATILITY, game_configs.CRYPTO_MIN_PRICE
         )
     else:
-        print(
-            "Warning: CRYPTO_VOLATILITY or CRYPTO_MIN_PRICE not found in game_configs. Skipping crypto update for simulation."
+        logger.warning(
+            "CRYPTO_VOLATILITY or CRYPTO_MIN_PRICE not found in game_configs. Skipping crypto update for simulation."
         )
 
-    print(f"\n--- Game State After One Day ---")
-    print(f"Current day: {game.current_day}")
-    print(f"Updated crypto prices: {game.current_crypto_prices}")
+    logger.info(f"\n--- Game State After One Day ---")
+    logger.info(f"Current day: {game.current_day}")
+    logger.info(f"Updated crypto prices: {game.current_crypto_prices}")
 
     # Get and print the game state summary
     summary: Dict[str, Any] = game.get_game_state_summary()
-    print(f"\n--- Game State Summary ---")
+    logger.info(f"\n--- Game State Summary ---")
     for key, value in summary.items():
-        print(f"  {key}: {value}")
+        logger.info(f"  {key}: {value}")
 
     # Example of how a specific region's data might be accessed (if needed)
-    # print("\n--- Accessing Specific Region Data (Example) ---")
+    # logger.info("\n--- Accessing Specific Region Data (Example) ---")
     # if RegionName.DOWNTOWN in game.all_regions:
     #     downtown_region = game.all_regions[RegionName.DOWNTOWN]
-    #     print(f"Data for {downtown_region.name.value if hasattr(downtown_region.name, 'value') else str(downtown_region.name)}:")
+    #     logger.info(f"Data for {downtown_region.name.value if hasattr(downtown_region.name, 'value') else str(downtown_region.name)}:")
     #     # This part is highly dependent on the structure of your Region and DrugMarket classes
     #     # For example, if Region has a method to describe its market:
     #     # if hasattr(downtown_region, 'describe_market'):
     #     #     downtown_region.describe_market()
     # else:
-    #     print(f"{RegionName.DOWNTOWN.value} not found in initialized regions.")
+    #     logger.warning(f"{RegionName.DOWNTOWN.value} not found in initialized regions.")

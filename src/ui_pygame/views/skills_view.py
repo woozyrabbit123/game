@@ -2,28 +2,28 @@
 """
 Handles drawing the Skills view.
 """
-import pygame
 from typing import List, TYPE_CHECKING
+
+import pygame
 
 if TYPE_CHECKING:
     from ...core.player_inventory import PlayerInventory
-
     # from game_state import GameState
     # from game_configs import GameConfigs
 
-from ..ui_theme import (
+from ..ui_components import Button
+from ..ui_theme import (  # Alphabetized
     FONT_LARGE,
     FONT_MEDIUM,
     FONT_MEDIUM_BOLD,
     FONT_SMALL,
     FONT_XSMALL,
-    YALE_BLUE,
-    IMPERIAL_RED,
     GOLDEN_YELLOW,
+    IMPERIAL_RED,
     PLATINUM,
+    YALE_BLUE,
     draw_text,
 )
-from ..ui_components import Button
 
 SCREEN_WIDTH = 1024  # Consider shared constants
 

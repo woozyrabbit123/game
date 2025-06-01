@@ -2,22 +2,22 @@
 """
 Handles drawing a generic blocking event popup.
 """
-import pygame
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
-from ..ui_theme import (
-    FONT_LARGE,
-    FONT_MEDIUM,
-    FONT_SMALL,
-    YALE_BLUE,
-    PLATINUM,
-    TEXT_COLOR,
-    OXFORD_BLUE,
-    RICH_BLACK,  # Added RICH_BLACK for overlay
-    draw_text,
-    draw_panel,  # Assuming draw_panel is available
-)
+import pygame
+
 from ..ui_components import Button
+from ..ui_theme import (  # Alphabetized and FONT_MEDIUM removed
+    FONT_LARGE,
+    FONT_SMALL,
+    OXFORD_BLUE,
+    PLATINUM,
+    RICH_BLACK,
+    TEXT_COLOR,
+    YALE_BLUE,
+    draw_panel,
+    draw_text,
+)
 
 # Constants for popup dimensions (can be adjusted)
 SCREEN_WIDTH = 1024
