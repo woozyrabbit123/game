@@ -7,6 +7,7 @@ from .core.enums import CryptoCoin, DrugQuality, DrugName, RegionName, SkillID
 # Player Defaults
 PLAYER_STARTING_CASH: float = 5000.0
 PLAYER_MAX_CAPACITY: int = 150 # This is the base capacity
+TRAVEL_COST_CASH: int = 50
 BANKRUPTCY_THRESHOLD: int = -1000 # If cash falls below this, game over
 
 # OpSec Upgrades
@@ -76,6 +77,7 @@ SUPPLY_DISRUPTION_EVENT_DURATION_DAYS: int = 2
 MIN_STOCK_AFTER_DISRUPTION: int = 1
 
 # Heat System & Police Stops
+BASE_DAILY_HEAT_DECAY: int = 1
 HEAT_PRICE_INCREASE_THRESHOLDS: Dict[int, float] = {0: 1.0, 21: 1.05, 51: 1.10, 81: 1.15}
 HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3: Dict[int, float] = {0: 1.0, 31: 0.75, 61: 0.50, 91: 0.25}
 HEAT_FROM_SELLING_DRUG_TIER: Dict[int, int] = {1: 1, 2: 2, 3: 4, 4: 8}
