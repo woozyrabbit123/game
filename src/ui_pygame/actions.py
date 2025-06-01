@@ -281,7 +281,7 @@ def action_travel_to_region(dest_region_obj, player_inv, game_state):
     from .setup_ui import setup_buttons
     from src.mechanics.event_manager import check_and_trigger_police_stop, update_active_events
     from src.game_state import update_daily_crypto_prices
-    from src.game_configs import CRYPTO_VOLATILITY, CRYPTO_MIN_PRICE
+    # Removed redundant import of CRYPTO_VOLATILITY and CRYPTO_MIN_PRICE
     travel_cost = state.game_configs_data_cache.TRAVEL_COST_CASH
     prev_region = game_state.current_player_region
     if player_inv.cash < travel_cost:
