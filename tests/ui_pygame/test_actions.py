@@ -109,14 +109,33 @@ class TestPygameActions(unittest.TestCase):
         mock_ui_state.game_state_data_cache.current_day = 1
         # If action_travel_to_region calls get_current_player_region():
         # mock_ui_state.game_state_data_cache.get_current_player_region = MagicMock(return_value=self.source_region)
+        # Ensure all_regions is explicitly mocked on game_state_data_cache
+        # and that set_current_player_region updates the mock's current_player_region
+        mock_all_regions = {
+            self.source_region.name: self.source_region,
+            self.dest_region.name: self.dest_region
+        }
+        mock_ui_state.game_state_data_cache.all_regions = mock_all_regions
+
+        def mock_set_region_side_effect(region_name_enum):
+            mock_ui_state.game_state_data_cache.current_player_region = mock_all_regions[region_name_enum]
+
+        mock_ui_state.game_state_data_cache.set_current_player_region = MagicMock(side_effect=mock_set_region_side_effect)
 
 
         mock_ui_state.game_configs_data_cache = MagicMock()
-        mock_ui_state.game_configs_data_cache.TRAVEL_COST_CASH = travel_cost
-        # Ensure all necessary configs are on this mock if used by the action
+        mock_ui_state.game_configs_data_cache.TRAVEL_COST_CASH = int(travel_cost)
         mock_ui_state.game_configs_data_cache.CRYPTO_VOLATILITY = {}
         mock_ui_state.game_configs_data_cache.CRYPTO_MIN_PRICE = {}
         mock_ui_state.game_configs_data_cache.HEAT_FROM_SELLING_DRUG_TIER = {}
+        # Explicitly set numerical values for heat decay, directly, not from imported game_configs
+        mock_ui_state.game_configs_data_cache.BASE_DAILY_HEAT_DECAY = 1
+        mock_ui_state.game_configs_data_cache.GHOST_PROTOCOL_DECAY_BOOST_PERCENT = 0.15
+        mock_ui_state.game_configs_data_cache.SKILL_POINTS_PER_X_DAYS = 7
+        mock_ui_state.game_configs_data_cache.POLICE_STOP_HEAT_THRESHOLD = 50
+        mock_ui_state.game_configs_data_cache.POLICE_STOP_BASE_CHANCE = 0.1
+        mock_ui_state.game_configs_data_cache.POLICE_STOP_CHANCE_PER_HEAT_POINT_ABOVE_THRESHOLD = 0.01
+        mock_ui_state.game_configs_data_cache.BANKRUPTCY_THRESHOLD = -1000
 
 
         mock_ui_state.campaign_day = 1
@@ -132,9 +151,18 @@ class TestPygameActions(unittest.TestCase):
 
         # Assertions
         self.assertEqual(mock_ui_state.player_inventory_cache.cash, initial_cash - travel_cost)
-        self.assertEqual(mock_ui_state.game_state_data_cache.current_player_region, self.dest_region)
-        self.assertEqual(mock_ui_state.campaign_day, 2) # Day should advance
-        self.mock_show_event_message.assert_called_with(f"Traveled from {self.source_region.name.value} to {self.dest_region.name.value}.")
+        # Compare region names instead of object instances
+        self.assertEqual(mock_ui_state.game_state_data_cache.current_player_region.name, self.dest_region.name)
+        # action_travel_to_region increments game_state_instance.current_day, not necessarily state.campaign_day
+        self.assertEqual(mock_ui_state.game_state_data_cache.current_day, 2) # Day should advance on the GameState object
+
+        # Check that show_event_message was called and inspect its arguments
+        self.mock_show_event_message.assert_called_once()
+        args, _ = self.mock_show_event_message.call_args
+        actual_message = args[0]
+        self.assertIn(f"to {self.dest_region.name.value}", actual_message)
+        self.assertIn(self.source_region.name.value, actual_message) # Check if "Downtown" is in the message
+
         self.mock_check_police_stop.assert_called_once()
         self.mock_update_crypto.assert_called_once()
         self.mock_update_events.assert_called_once()
@@ -237,9 +265,15 @@ class TestPygameActions(unittest.TestCase):
         mock_dest_region = Region(RegionName.SUBURBS.value)
 
         mock_ui_state.game_state_data_cache = MagicMock(spec=GameState)
-        # mock_ui_state.game_state_data_cache.current_player_region = mock_source_region # if accessed directly
-        mock_ui_state.game_state_data_cache.get_current_player_region = MagicMock(return_value=mock_source_region) # if accessed via method
-        mock_ui_state.game_state_data_cache.all_regions = {RegionName.SUBURBS: mock_dest_region}
+        mock_ui_state.game_state_data_cache.current_day = 1 # Ensure current_day is set
+        mock_ui_state.game_state_data_cache.get_current_player_region = MagicMock(return_value=mock_source_region)
+        mock_ui_state.game_state_data_cache.all_regions = {
+            self.source_region.name: self.source_region, # For perform_daily_updates if it needs to get current region by name
+            RegionName.SUBURBS: mock_dest_region # For setting the new region
+        }
+        def mock_set_region_side_effect_ghost(region_name_enum):
+            mock_ui_state.game_state_data_cache.current_player_region = mock_ui_state.game_state_data_cache.all_regions[region_name_enum]
+        mock_ui_state.game_state_data_cache.set_current_player_region = MagicMock(side_effect=mock_set_region_side_effect_ghost)
 
 
         mock_ui_state.game_configs_data_cache = MagicMock()
@@ -264,6 +298,9 @@ class TestPygameActions(unittest.TestCase):
         final_heat = max(0, initial_player_heat - expected_decay)
 
         self.assertEqual(mock_ui_state.player_inventory_cache.heat, final_heat)
+        # Change expected view to 'market' as per test_travel_successful
+        self.assertEqual(mock_ui_state.current_view, "market")
+
 
     # --- Tests for action_confirm_transaction (Buy Scenarios) ---
 

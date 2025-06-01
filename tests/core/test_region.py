@@ -202,16 +202,21 @@ class TestRegion(unittest.TestCase):
 
     def test_get_available_stock_with_heat_reduction_tier3(self):
         # Tier 3 drug (Coke)
-        player_heat_value = list(game_configs.HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3.keys())[1] # e.g. 31
-        self.mock_player_inventory.heat = player_heat_value
-        heat_reduction_factor = game_configs.HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3[player_heat_value]
+        # Test regional heat impact
+        regional_heat_value = list(game_configs.HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3.keys())[1] # e.g. 31
+        self.region.current_heat = regional_heat_value # Set regional heat
+        self.mock_player_inventory.heat = 0 # Ensure player heat is not a factor for this test's direct logic
+
+        heat_reduction_factor = game_configs.HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3[regional_heat_value]
 
         stock = self.region.get_available_stock(self.drug_name, self.quality_standard, self.mock_game_state)
         expected_stock = math.floor(self.initial_stocks_predictable[self.quality_standard] * heat_reduction_factor)
         self.assertEqual(stock, expected_stock)
+        self.region.current_heat = 0 # Reset for other tests
 
     def test_get_available_stock_with_supply_disruption(self):
-        self.mock_player_inventory.heat = 0
+        self.mock_player_inventory.heat = 0 # Player heat set to 0
+        self.region.current_heat = 0    # Regional heat set to 0
         reduction_factor = 0.5
         min_stock_after = 10
         self.region.active_market_events.append(MarketEvent(
@@ -243,29 +248,32 @@ class TestRegion(unittest.TestCase):
         # For Tier 3 drug with 0 heat, no heat reduction should apply from player_heat
         self.assertEqual(stock, self.initial_stocks_predictable[self.quality_standard])
 
-    def test_get_available_stock_with_player_heat_reduction_gs(self):
-        """Test with GameState: player heat reduction for Tier 2/3 drug."""
-        self.mock_player_inventory.heat = 60
-        self.region.drug_market_data[self.drug_name]["tier"] = 2 # Change to Tier 2 for testing this
+    def test_get_available_stock_with_regional_heat_reduction_gs(self): # Renamed test
+        """Test with GameState: regional heat reduction for Tier 2/3 drug."""
+        self.region.current_heat = 60 # Set regional heat
+        self.mock_player_inventory.heat = 0 # Ensure player heat is not the one being tested here
+        self.region.drug_market_data[self.drug_name]["tier"] = 2
         self.region.active_market_events = []
 
         stock = self.region.get_available_stock(self.drug_name, self.quality_standard, self.mock_game_state)
 
-        heat_reduction_factor = 1.0 # Default if no threshold met
+        heat_reduction_factor = 1.0
+        # This calculation should use self.region.current_heat as per _get_heat_stock_reduction_factor
         for threshold, factor in sorted(game_configs.HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3.items(), reverse=True):
-            if self.mock_player_inventory.heat >= threshold:
+            if self.region.current_heat >= threshold:
                 heat_reduction_factor = factor
                 break
 
         expected_stock = math.floor(self.initial_stocks_predictable[self.quality_standard] * heat_reduction_factor)
         self.assertEqual(stock, expected_stock)
-        # Reset tier for other tests if necessary, or ensure setUp re-initializes it
-        self.region.drug_market_data[self.drug_name]["tier"] = self.tier
+        self.region.drug_market_data[self.drug_name]["tier"] = self.tier # Reset tier
+        self.region.current_heat = 0 # Reset regional heat
 
     def test_get_available_stock_with_supply_disruption_event_gs(self):
         """Test with GameState: supply disruption event."""
         self.mock_player_inventory.heat = 0
-        self.region.drug_market_data[self.drug_name]["tier"] = 3 # Ensure it's a tier that heat *could* affect if present
+        self.region.current_heat = 0 # Ensure no regional heat interference
+        self.region.drug_market_data[self.drug_name]["tier"] = 3
 
         event_reduction_factor = 0.5
         min_stock_after_event = 10
@@ -289,9 +297,10 @@ class TestRegion(unittest.TestCase):
         self.assertEqual(stock, expected_stock)
 
     def test_get_available_stock_heat_and_event_combined_gs(self):
-        """Test with GameState: combined player heat and supply disruption."""
-        self.mock_player_inventory.heat = 60
-        self.region.drug_market_data[self.drug_name]["tier"] = 2 # Tier 2 drug
+        """Test with GameState: combined regional heat and supply disruption."""
+        self.region.current_heat = 60 # Set regional heat
+        self.mock_player_inventory.heat = 0 # Player heat should not interfere if logic is regional
+        self.region.drug_market_data[self.drug_name]["tier"] = 2
 
         event_reduction_factor = 0.5
         min_stock_after_event = 10
@@ -308,10 +317,10 @@ class TestRegion(unittest.TestCase):
 
         stock = self.region.get_available_stock(self.drug_name, self.quality_standard, self.mock_game_state)
 
-        # 1. Calculate heat reduction
+        # 1. Calculate heat reduction based on regional heat
         heat_reduction_factor_for_calc = 1.0
         for threshold, factor in sorted(game_configs.HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3.items(), reverse=True):
-            if self.mock_player_inventory.heat >= threshold:
+            if self.region.current_heat >= threshold: # Using regional heat
                 heat_reduction_factor_for_calc = factor
                 break
 
@@ -322,8 +331,8 @@ class TestRegion(unittest.TestCase):
         final_expected_stock = max(stock_after_event_reduction, min_stock_after_event)
 
         self.assertEqual(stock, final_expected_stock)
-        # Reset tier for other tests
-        self.region.drug_market_data[self.drug_name]["tier"] = self.tier
+        self.region.drug_market_data[self.drug_name]["tier"] = self.tier # Reset tier
+        self.region.current_heat = 0 # Reset regional heat
 
 
     # --- Stock Update Tests ---

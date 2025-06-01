@@ -46,6 +46,27 @@ A deep, turn-based drug trading and crime management simulation game for the ter
 - **Skills/Upgrades:** Unlock market intuition, digital footprint, increase capacity, buy secure phone
 - **Crypto:** Buy/sell/trade DC, VC, SC; launder money via Tech Contact
 
+## Technologies Used
+- Python 3.10+
+- Pygame (for the graphical UI version)
+- Textual (for the terminal UI version)
+- curses (for the terminal UI, especially `windows-curses` on Windows)
+
+## Project Structure
+- `src/`: Contains the main source code for the game.
+- `src/core/`: Core game logic, data structures (e.g., drugs, regions, player inventory), and enums.
+- `src/mechanics/`: Game mechanics such as event management and market impact calculations.
+- `src/ui_pygame/`: Implementation of the Pygame-based graphical user interface.
+- `src/ui_textual/`: Implementation of the Textual-based terminal user interface.
+
+## Testing
+The project includes a suite of tests located in the `tests/` directory.
+Currently, these tests primarily cover the core game logic (`tests/core/`) and game mechanics (`tests/mechanics/`).
+To run the tests, navigate to the root directory of the project in your terminal and run the following command:
+```bash
+python -m unittest discover tests
+```
+
 ## Known Limitations
 - Terminal resizing during play may cause display issues
 - Only tested on Windows with `windows-curses`
