@@ -24,20 +24,20 @@ from src.core.player_inventory import PlayerInventory
 from src.core.region import Region
 from src.core.ai_rival import AIRival
 from src.core.market_event import MarketEvent
-from src.game_state import initialize_game_state, get_game_state
+from src.game_state import GameState # Updated import
 
-from src.mechanics.event_manager import update_active_events, trigger_random_market_event
+from src.mechanics.event_manager import update_active_events, trigger_random_market_event # Keep, may need GameState
 from src.ui_textual.components.text_ui_handlers import (
     handle_view_market, handle_view_inventory,
-    handle_travel, handle_view_tech_contact, handle_skills_view,
+    handle_travel, handle_view_tech_contact, handle_skills_view, # These will need GameState
     handle_upgrades_view, handle_blocking_event_popup_view,
     handle_game_over_view, handle_informant_view,
     handle_buy_drug, handle_sell_drug, handle_advance_day,
     handle_view_skills, handle_view_upgrades,
     handle_talk_to_informant, handle_meet_corrupt_official
 )
-from src.ui_textual.components.ui_helpers import display_daily_status_header
-import src.game_state as game_state
+from src.ui_textual.components.ui_helpers import display_daily_status_header # Will need GameState
+# import src.game_state as game_state # Old import removed
 
 
 def main_curses_app(stdscr):
@@ -45,7 +45,6 @@ def main_curses_app(stdscr):
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()
-    # Color pairs: (pair_number, fg, bg)
     curses.init_pair(1, curses.COLOR_WHITE, -1)   # Default
     curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLUE)  # Header
     curses.init_pair(3, curses.COLOR_GREEN, -1)   # Success
@@ -62,77 +61,39 @@ def main_curses_app(stdscr):
     content_width = max_x
 
     header_win = curses.newwin(header_height, max_x, 0, 0)
-    content_pad = curses.newpad(1000, content_width)  # Large enough for scrolling
+    content_pad = curses.newpad(1000, content_width)
     log_win = curses.newwin(log_height, max_x, header_height + content_height, 0)
     input_win = curses.newwin(input_height, max_x, header_height + content_height + log_height, 0)
 
     # --- Game State Initialization ---
-    current_day = 1
+    game_state_instance = GameState()
     player_inventory = PlayerInventory(max_capacity=PLAYER_MAX_CAPACITY, starting_cash=PLAYER_STARTING_CASH)
+
+    # Debt payment status - could be part of player_inventory or game_state_instance if needed elsewhere
     debt_payment_1_paid = False
     debt_payment_2_paid = False
     debt_payment_3_paid = False
-    game_state.initialize_crypto_prices(CRYPTO_PRICES_INITIAL)
-    all_game_regions: Dict[str, Region] = {}
-    # Initialize Downtown region
-    downtown = Region("Downtown")
-    downtown.initialize_drug_market("Weed", 50, 80, 1, {
-        DrugQuality.STANDARD: random.randint(100,200)
-    })
-    downtown.initialize_drug_market("Pills", 100, 150, 2, { 
-        DrugQuality.STANDARD: random.randint(40,80), 
-        DrugQuality.CUT: random.randint(60,120)
-    })
-    downtown.initialize_drug_market("Coke", 1000, 1500, 3, { 
-        DrugQuality.PURE: random.randint(10,25), 
-        DrugQuality.STANDARD: random.randint(15,50), 
-        DrugQuality.CUT: random.randint(20,60)
-    })
-    all_game_regions["Downtown"] = downtown
 
-    # Initialize The Docks region
-    the_docks = Region("The Docks")
-    the_docks.initialize_drug_market("Weed", 40, 70, 1, {
-        DrugQuality.STANDARD: random.randint(100,300)
-    })
-    the_docks.initialize_drug_market("Speed", 120, 180, 2, { 
-        DrugQuality.STANDARD: random.randint(30,90), 
-        DrugQuality.CUT: random.randint(50,100)
-    })
-    the_docks.initialize_drug_market("Heroin", 600, 900, 3, { 
-        DrugQuality.PURE: random.randint(5,15), 
-        DrugQuality.STANDARD: random.randint(10,30)
-    })
-    all_game_regions["The Docks"] = the_docks
-
-    # Initialize Suburbia region
-    suburbia = Region("Suburbia")
-    suburbia.initialize_drug_market("Weed", 60, 100, 1, {
-        DrugQuality.STANDARD: random.randint(20,60)
-    })
-    suburbia.initialize_drug_market("Pills", 110, 170, 2, { 
-        DrugQuality.STANDARD: random.randint(20,50), 
-        DrugQuality.PURE: random.randint(5,15) 
-    })
-    all_game_regions["Suburbia"] = suburbia
-    current_player_region = all_game_regions["Downtown"]    # Initialize all region markets
-    for r_name, r_obj in all_game_regions.items():
-        r_obj.restock_market()
-
-    # Initialize AI rivals
-    ai_rivals: List[AIRival] = [
-        AIRival(name="The Chemist", primary_drug="Pills", primary_region_name="Downtown", 
+    # Initialize AI rivals and assign to game_state_instance
+    ai_rivals_list: List[AIRival] = [
+        AIRival(name="The Chemist", primary_drug=DrugName.PILLS, primary_region_name=RegionName.DOWNTOWN,
                 aggression=0.6, activity_level=0.7),
-        AIRival(name="Silas", primary_drug="Coke", primary_region_name="Downtown", 
+        AIRival(name="Silas", primary_drug=DrugName.COKE, primary_region_name=RegionName.DOWNTOWN,
                 aggression=0.8, activity_level=0.5),
-        AIRival(name="Dockmaster Jones", primary_drug="Speed", primary_region_name="The Docks", 
+        AIRival(name="Dockmaster Jones", primary_drug=DrugName.SPEED, primary_region_name=RegionName.DOCKS,
                 aggression=0.5, activity_level=0.6),
-        AIRival(name="Shady Stan", primary_drug="Heroin", primary_region_name="The Docks", 
+        AIRival(name="Shady Stan", primary_drug=DrugName.HEROIN, primary_region_name=RegionName.DOCKS,
                 aggression=0.7, activity_level=0.4)
     ]
+    game_state_instance.ai_rivals = ai_rivals_list
+
+    # Set initial player region
+    initial_region_name = RegionName.DOWNTOWN
+    game_state_instance.set_current_player_region(initial_region_name)
+    # current_player_region will be obtained via game_state_instance.get_current_player_region() when needed by handlers
 
     # --- Log Buffer ---
-    log_buffer = []  # List of (msg, color_pair)
+    log_buffer = []
     def add_log(msg, color=1):
         log_buffer.insert(0, (msg, color))
         if len(log_buffer) > log_height:
@@ -145,16 +106,15 @@ def main_curses_app(stdscr):
     # --- Main Loop ---
     try:
         while True:
+            current_day = game_state_instance.current_day # Get current day from instance
+            current_player_region_obj = game_state_instance.get_current_player_region() # Get current region object
+
             # --- Draw Header ---
             header_win.clear()
-            # Ensure player_inventory has current_region attribute before passing
-            # This might need to be set when player_inventory is initialized or when region changes
-            # For now, let's assume it's set correctly.
-            display_daily_status_header(header_win, current_day, player_inventory, debt_payment_1_paid, debt_payment_2_paid, debt_payment_3_paid)
+            display_daily_status_header(header_win, game_state_instance, player_inventory, debt_payment_1_paid, debt_payment_2_paid, debt_payment_3_paid)
             header_win.noutrefresh()
 
             # --- Debt Collector Payment Logic ---
-            # Payment 1
             if not debt_payment_1_paid and current_day == DEBT_PAYMENT_1_DUE_DAY:
                 log_win.clear()
                 if player_inventory.cash >= DEBT_PAYMENT_1_AMOUNT:
@@ -163,12 +123,11 @@ def main_curses_app(stdscr):
                     log_win.addstr(0, 0, f"Debt Collector payment 1 made!", curses.color_pair(3))
                 else:
                     log_win.addstr(0, 0, "GAME OVER: You failed to pay the Debt Collector!", curses.color_pair(4))
-                    log_win.noutrefresh()
-                    curses.doupdate()
+                    log_win.noutrefresh(); curses.doupdate()
                     input_win.clear(); input_win.addstr(0,0,"Press any key to exit.",curses.color_pair(4)); input_win.refresh(); input_win.getkey()
                     break
                 log_win.noutrefresh(); curses.doupdate(); input_win.clear(); input_win.addstr(0,0,"Press any key to continue.",curses.color_pair(3)); input_win.refresh(); input_win.getkey()
-            # Payment 2
+
             if debt_payment_1_paid and not debt_payment_2_paid and current_day == DEBT_PAYMENT_2_DUE_DAY:
                 log_win.clear()
                 if player_inventory.cash >= DEBT_PAYMENT_2_AMOUNT:
@@ -177,12 +136,11 @@ def main_curses_app(stdscr):
                     log_win.addstr(0, 0, f"Debt Collector payment 2 made!", curses.color_pair(3))
                 else:
                     log_win.addstr(0, 0, "GAME OVER: You failed to pay the Debt Collector!", curses.color_pair(4))
-                    log_win.noutrefresh()
-                    curses.doupdate()
+                    log_win.noutrefresh(); curses.doupdate()
                     input_win.clear(); input_win.addstr(0,0,"Press any key to exit.",curses.color_pair(4)); input_win.refresh(); input_win.getkey()
                     break
                 log_win.noutrefresh(); curses.doupdate(); input_win.clear(); input_win.addstr(0,0,"Press any key to continue.",curses.color_pair(3)); input_win.refresh(); input_win.getkey()
-            # Payment 3
+
             if debt_payment_1_paid and debt_payment_2_paid and not debt_payment_3_paid and current_day == DEBT_PAYMENT_3_DUE_DAY:
                 log_win.clear()
                 if player_inventory.cash >= DEBT_PAYMENT_3_AMOUNT:
@@ -200,34 +158,23 @@ def main_curses_app(stdscr):
             content_pad.clear()
             menu_lines = [
                 "1. View Market", "2. View Inventory", "3. Buy Drug", "4. Sell Drug", 
-                "5. Travel", # Added Travel
+                "5. Travel",
                 "6. Skills", "7. Upgrades", "8. Talk to Informant", "9. Meet Corrupt Official",
-                "A. Advance Day", # Changed Advance Day to 'A'
+                "A. Advance Day",
                 "0. Exit Game"
             ]
-            # Add dynamic options like "Respond to Opportunities" or "Crypto Shop" if applicable
-            # Example:
-            # if any(event.event_type == "THE_SETUP" for event in current_player_region.active_market_events):
-            # menu_lines.append("R. Respond to Opportunities")
-            # if "GHOST_NETWORK_ACCESS" in player_inventory.unlocked_skills:
-            # menu_lines.append("S. Crypto-Only Shop")
+            # Dynamic menu items would also use game_state_instance
+            # e.g. if any(event.event_type == "THE_SETUP" for event in current_player_region_obj.active_market_events):
+            # e.g. if "GHOST_NETWORK_ACCESS" in player_inventory.unlocked_skills:
 
             for idx, line in enumerate(menu_lines):
                 content_pad.addstr(idx, 0, line, curses.color_pair(5))
             
-            # Calculate valid screen viewport for content_pad
-            # pminrow, pmincol, sminrow, smincol, smaxrow, smaxcol
-            # sminrow: screen row where pad display starts (after header)
-            # smaxrow: screen row where pad display ends (before log and input)
             sminrow_pad = header_height
             smaxrow_pad = max_y - log_height - input_height - 1 
             smincol_pad = 0
             smaxcol_pad = max_x - 1
-            
-            # Ensure smaxrow_pad is not less than sminrow_pad
-            if smaxrow_pad < sminrow_pad: 
-                smaxrow_pad = sminrow_pad # Avoid error, though layout is compromised
-
+            if smaxrow_pad < sminrow_pad: smaxrow_pad = sminrow_pad
             content_pad.noutrefresh(0, 0, sminrow_pad, smincol_pad, smaxrow_pad, smaxcol_pad)
 
             # --- Input ---
@@ -238,28 +185,29 @@ def main_curses_app(stdscr):
             choice = input_win.getstr(0, 14, 10).decode().strip()
             curses.noecho()
 
-            # --- Handle Choice ---
+            # --- Handle Choice (pass game_state_instance to handlers) ---
             if choice == "1":
-                handle_view_market(current_player_region, player_inventory, content_pad, log_win, input_win)
+                handle_view_market(game_state_instance, player_inventory, content_pad, log_win, input_win)
             elif choice == "2":
-                handle_view_inventory(player_inventory, content_pad, log_win, input_win)
+                handle_view_inventory(game_state_instance, player_inventory, content_pad, log_win, input_win) # Assuming inventory might need game_state for context
             elif choice == "3":
-                handle_buy_drug(current_player_region, player_inventory, content_pad, log_win, input_win)
+                handle_buy_drug(game_state_instance, player_inventory, content_pad, log_win, input_win)
             elif choice == "4":
-                handle_sell_drug(current_player_region, player_inventory, content_pad, log_win, input_win)
+                handle_sell_drug(game_state_instance, player_inventory, content_pad, log_win, input_win)
             elif choice == "5":
-                handle_travel(current_player_region, all_game_regions, player_inventory, content_pad, log_win, input_win)
+                handle_travel(game_state_instance, player_inventory, content_pad, log_win, input_win)
             elif choice == "A" or choice == "a":
-                handle_advance_day(all_game_regions, current_day, current_player_region, player_inventory, ai_rivals, content_pad, log_win, input_win)
-                current_day += 1
+                # Advance day logic is now primarily within GameState or called by a handler that uses GameState
+                handle_advance_day(game_state_instance, player_inventory, content_pad, log_win, input_win)
+                # game_state_instance.current_day += 1 # This should be handled by handle_advance_day or a method in GameState
             elif choice == "6":
-                handle_view_skills(player_inventory, content_pad, log_win, input_win)
+                handle_view_skills(game_state_instance, player_inventory, content_pad, log_win, input_win)
             elif choice == "7":
-                handle_view_upgrades(player_inventory, content_pad, log_win, input_win)
+                handle_view_upgrades(game_state_instance, player_inventory, content_pad, log_win, input_win)
             elif choice == "8":
-                handle_talk_to_informant(current_player_region, all_game_regions, ai_rivals, player_inventory, content_pad, log_win, input_win)
+                handle_talk_to_informant(game_state_instance, player_inventory, content_pad, log_win, input_win)
             elif choice == "9":
-                handle_meet_corrupt_official(current_player_region, player_inventory, content_pad, log_win, input_win)
+                handle_meet_corrupt_official(game_state_instance, player_inventory, content_pad, log_win, input_win)
             elif choice == "0":
                 add_log("Exiting game. Goodbye!", 3)
                 break

@@ -5,8 +5,13 @@ from typing import Dict, List, Optional, Union
 from .enums import DrugQuality, DrugName, EventType, RegionName
 from .drug import Drug
 from .market_event import MarketEvent
+# from ..game_state import GameState # Removed direct import
+from typing import TYPE_CHECKING
 from ..game_configs import (HEAT_PRICE_INCREASE_THRESHOLDS,
                          HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3)
+
+if TYPE_CHECKING:
+    from ..game_state import GameState # Import for type hinting only
 
 
 class Region:
@@ -159,26 +164,39 @@ class Region:
                     break # Assuming one relevant non-crash event, or first one found applies.
         return round(max(0, calculated_price), 2)
 
-    def get_available_stock(self, drug_name: DrugName, quality: DrugQuality, player_heat: int) -> int:
+    def get_available_stock(self, drug_name: DrugName, quality: DrugQuality, game_state_instance: 'GameState') -> int:
         if (drug_name not in self.drug_market_data or
             quality not in self.drug_market_data[drug_name]["available_qualities"]):
             return 0
+
+        # Obtain player_heat from game_state_instance
+        # This assumes game_state_instance has player_inventory attribute,
+        # and PlayerInventory has a heat attribute.
+        player_heat = 0 # Default if not found for safety
+        if hasattr(game_state_instance, 'player_inventory') and \
+           hasattr(game_state_instance.player_inventory, 'heat'):
+            player_heat = game_state_instance.player_inventory.heat
+        else:
+            # This case should ideally not be reached if GameState and PlayerInventory are structured as expected.
+            # Consider logging a warning if this happens.
+            print(f"Warning: Could not retrieve player_heat from game_state_instance in Region.get_available_stock for {self.name.value}")
+
 
         base_stock = self.drug_market_data[drug_name]["available_qualities"][quality]["quantity_available"]
         modified_stock = base_stock
         drug_tier = self.drug_market_data[drug_name].get("tier")
 
-        # Apply Heat-Based Stock Reduction (Jules 1)
+        # Apply Heat-Based Stock Reduction (Jules 1) - based on player_heat
         if drug_tier in [2, 3]:
             reduction_multiplier = 1.0 # Default if no threshold met
             for threshold, multiplier in sorted(HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3.items(), reverse=True):
-                if player_heat >= threshold:
+                if player_heat >= threshold: # Using player_heat from game_state_instance
                     reduction_multiplier = multiplier
                     break
             modified_stock = math.floor(modified_stock * reduction_multiplier)
             modified_stock = max(0, modified_stock) # Ensure stock doesn't go below zero
 
-        # Apply SUPPLY_CHAIN_DISRUPTION if active (Jules 2)
+        # Apply SUPPLY_CHAIN_DISRUPTION if active (Jules 2) - this is a regional event, not based on player_heat
         for event in self.active_market_events:
             if event.event_type == EventType.SUPPLY_DISRUPTION and \
                event.target_drug_name == drug_name and \

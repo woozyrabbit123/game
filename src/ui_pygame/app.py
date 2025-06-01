@@ -15,6 +15,7 @@ from ..core.enums import DrugName, DrugQuality, RegionName, CryptoCoin, SkillID,
 from ..core.player_inventory import PlayerInventory
 from ..core.region import Region
 from ..core.market_event import MarketEvent # Added for isinstance checks
+from ..game_state import GameState # Added GameState import
 from ..mechanics import market_impact, event_manager
 from .. import game_configs as game_configs_module # To access game_configs directly for MUGGING_EVENT_CHANCE
 
@@ -100,13 +101,13 @@ PROMPT_DURATION_FRAMES = 120
 active_blocking_event_data: Optional[Dict] = None
 game_over_message: Optional[str] = None
 
-game_state_data_cache: Optional[any] = None
+game_state_data_cache: Optional[GameState] = None # Updated type hint
 game_configs_data_cache: Optional[any] = None
 player_inventory_cache: Optional[PlayerInventory] = None
 
 
 # --- Daily Updates Function ---
-def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInventory, game_configs_data: any):
+def perform_daily_updates(game_state_data: GameState, player_inventory_data: PlayerInventory, game_configs_data: any): # Updated type hint
     global game_over_message, active_blocking_event_data
     if game_over_message is not None: return
 
@@ -126,17 +127,16 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
             show_event_message_external("Final debt paid! You are free!"); add_message_to_log("Paid $20k (Final Debt). You are FREE!")
         else: game_over_message = "GAME OVER: Failed Final Debt Payment!"; add_message_to_log(game_over_message); return
 
-    if hasattr(game_state_data, 'all_regions'):
-        for r in game_state_data.all_regions.values():
-            if hasattr(r, 'restock_market'):
-                r.restock_market()
-            # Heat decay now includes Ghost Protocol skill check within its function
-            market_impact.decay_regional_heat(r, 1.0, player_inventory_data, game_configs_data)
-            market_impact.decay_player_market_impact(r)
-            market_impact.decay_rival_market_impact(r, game_state_data.current_day)
-            event_manager.update_active_events(r) # Update active events
+    # Use game_state_data.all_regions directly
+    for r in game_state_data.all_regions.values(): # game_state_data is GameState instance
+        if hasattr(r, 'restock_market'):
+            r.restock_market()
+        market_impact.decay_regional_heat(r, 1.0, player_inventory_data, game_configs_data)
+        market_impact.decay_player_market_impact(r)
+        market_impact.decay_rival_market_impact(r, game_state_data.current_day)
+        event_manager.update_active_events(r) # Update active events
             
-    if hasattr(game_state_data, 'update_daily_crypto_prices'): game_state_data.update_daily_crypto_prices(game_configs_data.CRYPTO_VOLATILITY, game_configs_data.CRYPTO_MIN_PRICE)
+    game_state_data.update_daily_crypto_prices(game_configs_data.CRYPTO_VOLATILITY, game_configs_data.CRYPTO_MIN_PRICE) # Direct call
 
     if hasattr(player_inventory_data, 'staked_drug_coin') and player_inventory_data.staked_drug_coin.get('staked_amount',0) > 0 and hasattr(game_configs_data, 'DC_STAKING_DAILY_RETURN_PERCENT'):
         reward = player_inventory_data.staked_drug_coin['staked_amount'] * game_configs_data.DC_STAKING_DAILY_RETURN_PERCENT
@@ -149,28 +149,26 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
         player_inventory_data.pending_laundered_sc=0.0; player_inventory_data.pending_laundered_sc_arrival_day=None
 
     # --- Event Triggering ---
-    # Trigger random market events (includes Drug Market Crash, Supply Chain Disruption, Black Market Opportunity)
-    # This block now passes all necessary callbacks and game_configs_data
-    if hasattr(game_state_data, 'current_player_region') and hasattr(event_manager, 'trigger_random_market_event'):
+    current_player_region_obj = game_state_data.get_current_player_region()
+    if current_player_region_obj and hasattr(event_manager, 'trigger_random_market_event'):
         triggered_event_log_msg = event_manager.trigger_random_market_event(
-            region=game_state_data.current_player_region,
+            region=current_player_region_obj, # Pass Region object
             current_day=game_state_data.current_day,
             player_inventory=player_inventory_data,
-            ai_rivals=getattr(game_state_data, 'ai_rivals', []), # Use getattr for safety
+            ai_rivals=game_state_data.ai_rivals, # Direct access
             show_event_message_callback=show_event_message_external,
             game_configs_data=game_configs_data,
             add_to_log_callback=add_message_to_log
         )
-        if triggered_event_log_msg: # If a message was returned (e.g., from Black Market event)
+        if triggered_event_log_msg:
             add_message_to_log(triggered_event_log_msg)
 
-    # Process AI Rivals (including return from busted status)
-    if hasattr(game_state_data, 'ai_rivals'):
-        for rival_instance in game_state_data.ai_rivals:
-            market_impact.process_rival_turn(
-                rival=rival_instance,
-                all_regions_dict=game_state_data.all_regions,
-                current_turn_number=game_state_data.current_day,
+    # Process AI Rivals
+    for rival_instance in game_state_data.ai_rivals: # Direct access
+        market_impact.process_rival_turn(
+            rival=rival_instance,
+            all_regions_dict=game_state_data.all_regions, # Direct access
+            current_turn_number=game_state_data.current_day,
                 game_configs=game_configs_data,
                 add_to_log_cb=add_message_to_log,
                 show_on_screen_cb=show_event_message_external
@@ -204,9 +202,14 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
     unavailable_days_val = getattr(game_configs_data, 'INFORMANT_BETRAYAL_UNAVAILABLE_DAYS', getattr(game_configs_module, 'INFORMANT_BETRAYAL_UNAVAILABLE_DAYS', 7))
 
     current_informant_trust = getattr(player_inventory_data, 'informant_trust', 100)
-    informant_available_check_day = getattr(game_state_data, 'informant_unavailable_until_day', None)
+    # Access informant_unavailable_until_day from GameState instance
+    informant_available_check_day = game_state_data.informant_unavailable_until_day
 
-    if not any(isinstance(ev, MarketEvent) and ev.event_type == EventType.INFORMANT_BETRAYAL for ev in game_state_data.current_player_region.active_market_events) and \
+    # Access current_player_region via method
+    current_player_region_obj = game_state_data.get_current_player_region()
+
+    if current_player_region_obj and \
+       not any(isinstance(ev, MarketEvent) and ev.event_type == EventType.INFORMANT_BETRAYAL for ev in current_player_region_obj.active_market_events) and \
        current_informant_trust < trust_threshold_val and \
        random.random() < betrayal_chance_val and \
        game_over_message is None and active_blocking_event_data is None and \
@@ -218,17 +221,13 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
         trust_lost = original_trust - player_inventory_data.informant_trust
 
         heat_increase = 5 # Small regional heat
-        region_name_for_log = "Unknown Region"
-        if hasattr(game_state_data, 'current_player_region') and game_state_data.current_player_region is not None:
-            current_player_region_obj = game_state_data.current_player_region
-            region_name_for_log = getattr(current_player_region_obj.name, 'value', str(current_player_region_obj.name))
-            if hasattr(current_player_region_obj, 'modify_heat'):
-                current_player_region_obj.modify_heat(heat_increase)
-            else:
-                current_player_region_obj.current_heat = getattr(current_player_region_obj, 'current_heat', 0) + heat_increase
-        else:
-             add_message_to_log("Warning: current_player_region not found for heat increase in betrayal event.")
+        region_name_for_log = getattr(current_player_region_obj.name, 'value', str(current_player_region_obj.name))
 
+        if hasattr(current_player_region_obj, 'modify_heat'):
+            current_player_region_obj.modify_heat(heat_increase)
+        else:
+            # Fallback if modify_heat doesn't exist, though it should for Region objects
+            current_player_region_obj.current_heat = getattr(current_player_region_obj, 'current_heat', 0) + heat_increase
 
         title = "Informant Betrayal!"
         messages = [
@@ -252,12 +251,14 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
 
     # Forced Fire Sale Event Check
     active_ffs_event = None
-    for event in game_state_data.current_player_region.active_market_events:
-        if isinstance(event, MarketEvent) and event.event_type == EventType.FORCED_FIRE_SALE:
-            active_ffs_event = event
-            break
+    # current_player_region_obj should be defined from above
+    if current_player_region_obj:
+        for event in current_player_region_obj.active_market_events:
+            if isinstance(event, MarketEvent) and event.event_type == EventType.FORCED_FIRE_SALE:
+                active_ffs_event = event
+                break
 
-    if active_ffs_event and game_over_message is None and active_blocking_event_data is None:
+    if current_player_region_obj and active_ffs_event and game_over_message is None and active_blocking_event_data is None:
         total_player_drugs_quantity = 0
         if hasattr(player_inventory_data, 'items') and player_inventory_data.items:
             for drug_name_enum_key, qualities_dict in player_inventory_data.items.items():
@@ -296,12 +297,12 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
                 qty_of_this_drug_to_sell = min(qty_of_this_drug_to_sell, current_qty)
 
                 if qty_of_this_drug_to_sell > 0:
-                    if not hasattr(game_state_data, 'current_player_region') or \
-                       not hasattr(game_state_data.current_player_region, 'get_sell_price'):
-                        add_message_to_log(f"Forced Fire Sale: Player region or get_sell_price not available. Skipping sale of {drug_name_val.value}.")
+                    # Use current_player_region_obj consistently
+                    if not hasattr(current_player_region_obj, 'get_sell_price'):
+                        add_message_to_log(f"Forced Fire Sale: Player region's get_sell_price not available. Skipping sale of {drug_name_val.value}.")
                         continue
 
-                    current_market_sell_price = game_state_data.current_player_region.get_sell_price(drug_name_val, quality_val)
+                    current_market_sell_price = current_player_region_obj.get_sell_price(drug_name_val, quality_val)
 
                     if current_market_sell_price <= 0:
                         add_message_to_log(f"Forced Fire Sale: No market demand for {drug_name_val.value} ({quality_val.name}), cannot sell this item.")
@@ -325,14 +326,12 @@ def perform_daily_updates(game_state_data: any, player_inventory_data: PlayerInv
 
             if total_units_sold_for_event > 0:
                 heat_increase_ffs = 10
-                region_name_log_ffs = "Unknown Region"
-                if hasattr(game_state_data, 'current_player_region') and game_state_data.current_player_region is not None:
-                    current_player_region_obj_ffs = game_state_data.current_player_region
-                    region_name_log_ffs = getattr(current_player_region_obj_ffs.name, 'value', str(current_player_region_obj_ffs.name))
-                    if hasattr(current_player_region_obj_ffs, 'modify_heat'):
-                        current_player_region_obj_ffs.modify_heat(heat_increase_ffs)
-                    else:
-                        current_player_region_obj_ffs.current_heat = getattr(current_player_region_obj_ffs, 'current_heat', 0) + heat_increase_ffs
+                # current_player_region_obj already defined and checked
+                region_name_log_ffs = getattr(current_player_region_obj.name, 'value', str(current_player_region_obj.name))
+                if hasattr(current_player_region_obj, 'modify_heat'):
+                    current_player_region_obj.modify_heat(heat_increase_ffs)
+                else:
+                    current_player_region_obj.current_heat = getattr(current_player_region_obj, 'current_heat', 0) + heat_increase_ffs
 
                 ffs_title = "Forced Fire Sale!"
                 sold_summary_display_str = ", ".join(drugs_sold_details) if drugs_sold_details else "some assets (details unclear)"
@@ -380,17 +379,22 @@ def action_open_upgrades(): global current_view; current_view = "upgrades"
 def action_open_informant(): global current_view; current_view = "informant"
 def action_close_blocking_event_popup(): global active_blocking_event_data, current_view; active_blocking_event_data = None; current_view = "main_menu"
 
-def action_travel_to_region(destination_region: Region, player_inv: PlayerInventory, game_state: any):
+def action_travel_to_region(destination_region: Region, player_inv: PlayerInventory, game_state_instance: GameState): # Renamed game_state to game_state_instance
     global current_view, game_state_data_cache, player_inventory_cache, game_configs_data_cache, active_blocking_event_data, game_over_message
     if game_over_message is not None: return
     add_message_to_log(f"Attempting to travel to {destination_region.name.value}.")
-    original_day_before_travel = game_state.current_day
-    game_state.current_player_region = destination_region
-    game_state.current_day += 1
-    add_message_to_log(f"Advanced day to {game_state.current_day}.")
-    perform_daily_updates(game_state_data_cache, player_inventory_cache, game_configs_data_cache)
+    original_day_before_travel = game_state_instance.current_day
+
+    # Use the method on GameState instance to set region by its name enum if possible, or pass Region object if method supports it
+    # Assuming destination_region.name is the RegionName enum member
+    game_state_instance.set_current_player_region(destination_region.name)
+    game_state_instance.current_day += 1
+
+    add_message_to_log(f"Advanced day to {game_state_instance.current_day}.")
+    perform_daily_updates(game_state_data_cache, player_inventory_cache, game_configs_data_cache) # game_state_data_cache is game_state_instance
     if game_over_message is not None: current_view = "game_over"; add_message_to_log("Game over triggered during travel daily updates."); return
-    if game_state.current_day % game_configs_data_cache.SKILL_POINTS_PER_X_DAYS == 0 and game_state.current_day > original_day_before_travel:
+
+    if game_state_instance.current_day % game_configs_data_cache.SKILL_POINTS_PER_X_DAYS == 0 and game_state_instance.current_day > original_day_before_travel:
         player_inv.skill_points +=1;
         show_event_message_external(f"Day advanced. +1 Skill Point. Total: {player_inv.skill_points}")
         add_message_to_log(f"Awarded skill point. Total: {player_inv.skill_points}")
@@ -437,7 +441,7 @@ def action_travel_to_region(destination_region: Region, player_inv: PlayerInvent
         add_message_to_log(f"Arrived safely in {destination_region.name.value}.")
         current_view = "main_menu"
 
-def action_ask_informant_rumor(player_inv: PlayerInventory, game_configs: any, game_state: any):
+def action_ask_informant_rumor(player_inv: PlayerInventory, game_configs: any, game_state_instance: GameState): # Renamed game_state
     cost = game_configs.INFORMANT_TIP_COST_RUMOR
     if player_inv.cash >= cost:
         player_inv.cash -= cost
@@ -448,17 +452,18 @@ def action_ask_informant_rumor(player_inv: PlayerInventory, game_configs: any, g
         add_message_to_log(f"Paid informant ${cost:.0f} for a rumor: {rumor}")
     else:
         set_active_prompt_message(f"Error: Not enough cash. Need ${cost:.0f}."); add_message_to_log(f"Failed to buy rumor: Insufficient cash. Needed ${cost:.0f}, Has ${player_inv.cash:.0f}")
-    setup_buttons(game_state, player_inv, game_configs, game_state.current_player_region)
+    setup_buttons(game_state_instance, player_inv, game_configs, game_state_instance.get_current_player_region()) # Use instance
 
-def action_ask_informant_rival_status(player_inv: PlayerInventory, game_configs: any, game_state: any):
+def action_ask_informant_rival_status(player_inv: PlayerInventory, game_configs: any, game_state_instance: GameState): # Renamed game_state
     cost = game_configs.INFORMANT_TIP_COST_RIVAL_INFO
     if player_inv.cash >= cost:
         player_inv.cash -= cost
         player_inv.informant_trust = min(player_inv.informant_trust + game_configs.INFORMANT_TRUST_GAIN_PER_TIP, game_configs.INFORMANT_MAX_TRUST)
         info_parts = []
-        if hasattr(game_state, 'ai_rivals') and game_state.ai_rivals:
-            active_rivals = [r.name for r in game_state.ai_rivals if not r.is_busted]
-            busted_rivals = [(r.name, r.busted_days_remaining) for r in game_state.ai_rivals if r.is_busted]
+        # Access ai_rivals from GameState instance
+        if game_state_instance.ai_rivals:
+            active_rivals = [r.name for r in game_state_instance.ai_rivals if not r.is_busted]
+            busted_rivals = [(r.name, r.busted_days_remaining) for r in game_state_instance.ai_rivals if r.is_busted]
             if active_rivals: info_parts.append(f"Active: {', '.join(active_rivals)}.")
             else: info_parts.append("No active rivals on my radar.")
             if busted_rivals: info_parts.append(f"Busted: {', '.join([f'{name}({days}d left)' for name, days in busted_rivals])}.")
@@ -468,7 +473,7 @@ def action_ask_informant_rival_status(player_inv: PlayerInventory, game_configs:
         add_message_to_log(f"Paid informant ${cost:.0f} for rival status: {final_info}")
     else:
         set_active_prompt_message(f"Error: Not enough cash. Need ${cost:.0f}."); add_message_to_log(f"Failed to buy rival info: Insufficient cash. Needed ${cost:.0f}, Has ${player_inv.cash:.0f}")
-    setup_buttons(game_state, player_inv, game_configs, game_state.current_player_region)
+    setup_buttons(game_state_instance, player_inv, game_configs, game_state_instance.get_current_player_region()) # Use instance
 
 def _initiate_market_transaction(trans_type: str, drug: DrugName, quality: DrugQuality, price: float, available: int):
     """Helper function to set up state for a market buy/sell transaction."""
@@ -486,13 +491,13 @@ def action_initiate_buy(drug: DrugName, quality: DrugQuality, price: float, avai
 def action_initiate_sell(drug: DrugName, quality: DrugQuality, price: float, available: int):
     _initiate_market_transaction("sell", drug, quality, price, available)
 
-def action_confirm_transaction(player_inv: PlayerInventory, market_region: Region, game_state: any):
+def action_confirm_transaction(player_inv: PlayerInventory, market_region: Region, game_state_instance: GameState): # Renamed game_state
     global quantity_input_string, current_transaction_type, drug_for_transaction, quality_for_transaction, price_for_transaction, available_for_transaction, current_view, game_configs_data_cache
     original_quantity_input = quantity_input_string
     if not quantity_input_string.isdigit():
-        errmsg = "Error: Quantity must be a positive number." # Changed from "must be a number"
+        errmsg = "Error: Quantity must be a positive number."
         set_active_prompt_message(errmsg); add_message_to_log(f"Transaction failed: {errmsg} Input: '{original_quantity_input}'")
-        quantity_input_string = ""; setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, market_region); return
+        quantity_input_string = ""; setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, market_region); return # game_state_data_cache is GameState instance
     quantity = int(quantity_input_string)
     if quantity <= 0:
         errmsg = "Error: Quantity must be a positive number."
@@ -585,9 +590,10 @@ def action_cancel_transaction():
     if current_view in ["market_buy_input", "market_sell_input"]: current_view = "market"
     elif current_view in ["tech_input_coin_select", "tech_input_amount"]: current_view = "tech_contact"
     quantity_input_string = ""; tech_input_string = ""; tech_transaction_in_progress = None; active_prompt_message = None
-    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.current_player_region)
+    # game_state_data_cache is GameState, get_current_player_region() returns Region object
+    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.get_current_player_region())
 
-def action_unlock_skill(skill_id: SkillID, player_inv: PlayerInventory, game_configs: any):
+def action_unlock_skill(skill_id: SkillID, player_inv: PlayerInventory, game_configs: any): # game_state needed for setup_buttons
     if skill_id in player_inv.unlocked_skills:
         set_active_prompt_message("Skill already unlocked."); add_message_to_log(f"Skill unlock failed: {skill_id.value} already unlocked.")
         return
@@ -602,9 +608,9 @@ def action_unlock_skill(skill_id: SkillID, player_inv: PlayerInventory, game_con
         show_event_message_external(msg); add_message_to_log(msg)
     else:
         set_active_prompt_message("Error: Not enough skill points."); add_message_to_log(f"Skill unlock failed for {skill_id.value}: Need {cost}, Has {player_inv.skill_points}")
-    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.current_player_region)
+    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.get_current_player_region())
 
-def action_purchase_capacity_upgrade(player_inv: PlayerInventory, game_configs: any):
+def action_purchase_capacity_upgrade(player_inv: PlayerInventory, game_configs: any): # game_state needed for setup_buttons
     upgrade_def = game_configs.UPGRADE_DEFINITIONS.get("EXPANDED_CAPACITY")
     if not upgrade_def:
         set_active_prompt_message("Error: Upgrade data unavailable."); add_message_to_log("Capacity upgrade failed: Definition not found.")
@@ -622,9 +628,9 @@ def action_purchase_capacity_upgrade(player_inv: PlayerInventory, game_configs: 
         show_event_message_external(msg); add_message_to_log(msg)
     else:
         set_active_prompt_message(f"Error: Not enough cash. Need ${cost:,.0f}."); add_message_to_log(f"Capacity upgrade failed: Need ${cost:,.0f}, Has ${player_inv.cash:,.0f}")
-    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.current_player_region)
+    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.get_current_player_region())
 
-def action_purchase_secure_phone(player_inv: PlayerInventory, game_configs: any):
+def action_purchase_secure_phone(player_inv: PlayerInventory, game_configs: any): # game_state needed for setup_buttons
     if player_inv.has_secure_phone:
         set_active_prompt_message("Secure Phone already owned."); add_message_to_log("Secure phone purchase failed: Already owned.")
         return
@@ -639,9 +645,9 @@ def action_purchase_secure_phone(player_inv: PlayerInventory, game_configs: any)
         show_event_message_external(msg); add_message_to_log(msg)
     else:
         set_active_prompt_message(f"Error: Not enough cash. Need ${cost:,0f}."); add_message_to_log(f"Secure phone purchase failed: Need ${cost:,0f}, Has ${player_inv.cash:,.0f}")
-    current_view = "tech_contact"; setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.current_player_region)
+    current_view = "tech_contact"; setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.get_current_player_region())
     
-def action_collect_staking_rewards(player_inv: PlayerInventory):
+def action_collect_staking_rewards(player_inv: PlayerInventory): # game_state needed for setup_buttons
     rewards_to_collect = player_inv.staked_drug_coin.get('pending_rewards', 0.0)
     if rewards_to_collect > 1e-9:
         player_inv.add_crypto(CryptoCoin.DRUG_COIN, rewards_to_collect)
@@ -650,9 +656,9 @@ def action_collect_staking_rewards(player_inv: PlayerInventory):
         show_event_message_external(msg); add_message_to_log(msg)
     else:
         set_active_prompt_message("No staking rewards to collect."); add_message_to_log("Collect staking rewards: No rewards available.")
-    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.current_player_region)
+    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.get_current_player_region())
 
-def action_initiate_tech_operation(operation_type: str):
+def action_initiate_tech_operation(operation_type: str): # game_state needed for setup_buttons
     global current_view, tech_transaction_in_progress, coin_for_tech_transaction, tech_input_string
     add_message_to_log(f"Initiating tech operation: {operation_type}")
     tech_transaction_in_progress = operation_type; tech_input_string = ""
@@ -660,17 +666,17 @@ def action_initiate_tech_operation(operation_type: str):
     elif operation_type in ["buy_crypto", "sell_crypto", "stake_dc", "unstake_dc"]: current_view = "tech_input_coin_select"; set_active_prompt_message("Select cryptocurrency.")
     elif operation_type == "launder_cash": coin_for_tech_transaction = None; current_view = "tech_input_amount"; set_active_prompt_message("Enter cash amount to launder.")
     elif operation_type == "buy_ghost_network": action_purchase_ghost_network(player_inventory_cache, game_configs_data_cache); return
-    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.current_player_region)
+    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.get_current_player_region())
 
-def action_tech_select_coin(coin: CryptoCoin):
+def action_tech_select_coin(coin: CryptoCoin): # game_state needed for setup_buttons
     global current_view, coin_for_tech_transaction, tech_transaction_in_progress
     verb = tech_transaction_in_progress.split("_")[0]
     add_message_to_log(f"Tech operation coin selected: {coin.value} for {verb}")
     coin_for_tech_transaction = coin; current_view = "tech_input_amount";
     set_active_prompt_message(f"Enter amount of {coin.value} to {verb}.")
-    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.current_player_region)
+    setup_buttons(game_state_data_cache, player_inventory_cache, game_configs_data_cache, game_state_data_cache.get_current_player_region())
 
-def action_purchase_ghost_network(player_inv: PlayerInventory, game_configs: any):
+def action_purchase_ghost_network(player_inv: PlayerInventory, game_configs: any): # game_state needed for setup_buttons
     global current_view
     skill_id = SkillID.GHOST_NETWORK_ACCESS; cost_dc = getattr(game_configs, 'GHOST_NETWORK_ACCESS_COST_DC', 50.0)
     if skill_id in player_inv.unlocked_skills:
@@ -751,12 +757,14 @@ def action_confirm_tech_operation(player_inv: PlayerInventory, game_state: any, 
         else: set_active_prompt_message(f"Error: Not enough staked {CryptoCoin.DRUG_COIN.value} or wrong coin."); add_message_to_log(log_prefix + f"Failed - Not enough staked {CryptoCoin.DRUG_COIN.value}. Have {player_inv.staked_drug_coin.get('staked_amount',0):.4f}")
     
     if success and effective_heat > 0 and tech_transaction_in_progress in ["buy_crypto", "sell_crypto", "launder_cash"]:
-        current_player_region.modify_heat(effective_heat); add_message_to_log(f"Applied heat: +{effective_heat} in {region_name_str} for {tech_transaction_in_progress}")
+        # current_player_region is already a Region object from game_state_instance
+        if current_player_region: # Ensure it's not None
+            current_player_region.modify_heat(effective_heat); add_message_to_log(f"Applied heat: +{effective_heat} in {region_name_str} for {tech_transaction_in_progress}")
 
     if success: current_view = "tech_contact"; tech_input_string = ""; tech_transaction_in_progress = None
     else:
-        if amount is None : tech_input_string = ""
-    setup_buttons(game_state_data_cache, player_inv, game_configs, current_player_region)
+        if amount is None : tech_input_string = "" # Keep input if amount was valid but other conditions failed
+    setup_buttons(game_state, player_inv, game_configs, current_player_region) # game_state is game_state_instance here
 
 # --- Button Creation Helper Functions & UI Setup ---
 def _create_action_button(text: str, action: Callable, x: int, y: int, width: int, height: int, font: pygame.font.Font = FONT_MEDIUM, is_enabled: bool = True) -> Button:
@@ -776,6 +784,9 @@ def _get_active_buttons(current_view_local: str, game_state: Any, player_inv: Pl
     main_menu_buttons.clear(); market_view_buttons.clear(); market_buy_sell_buttons.clear(); inventory_view_buttons.clear(); travel_view_buttons.clear(); tech_contact_view_buttons.clear(); skills_view_buttons.clear(); upgrades_view_buttons.clear(); transaction_input_buttons.clear(); blocking_event_popup_buttons.clear(); game_over_buttons.clear(); informant_view_buttons.clear()
     button_width, button_height, spacing, start_x, start_y = STD_BUTTON_WIDTH, STD_BUTTON_HEIGHT, STD_BUTTON_SPACING, SCREEN_WIDTH // 2 - STD_BUTTON_WIDTH // 2, 120
     
+    # game_state is game_state_instance (GameState type)
+    current_player_region_obj = game_state.get_current_player_region() # Get the region object
+
     if current_view_local == "game_over":
         popup_width,popup_height,btn_w,btn_h = SCREEN_WIDTH*0.7,SCREEN_HEIGHT*0.5,150,40; popup_x,popup_y=(SCREEN_WIDTH-popup_width)/2,(SCREEN_HEIGHT-popup_height)/2; btn_x,btn_y=popup_x+(popup_width-btn_w)/2,popup_y+popup_height-btn_h-40
         game_over_buttons.append(_create_action_button("Exit Game",lambda:sys.exit(),btn_x,btn_y,btn_w,btn_h,font=FONT_MEDIUM)); return game_over_buttons
@@ -787,19 +798,19 @@ def _get_active_buttons(current_view_local: str, game_state: Any, player_inv: Pl
             ("Travel", action_open_travel, None),
             ("Tech Contact", action_open_tech_contact, None),
             ("Meet Informant", action_open_informant,
-             lambda: (getattr(game_state, 'informant_unavailable_until_day', None) is None or \
-                      getattr(game_state, 'current_day', 0) >= getattr(game_state, 'informant_unavailable_until_day', 0))),
+             lambda gs=game_state: (gs.informant_unavailable_until_day is None or \
+                                    gs.current_day >= gs.informant_unavailable_until_day)), # Pass gs
             ("Skills", action_open_skills, None),
             ("Upgrades", action_open_upgrades, None)
         ]
         col1_c = 4
-        for i, (text, action, enabled_check) in enumerate(actions_defs): # Use enabled_check
+        for i, (text, action, enabled_check) in enumerate(actions_defs):
             col, row_in_col = (0, i) if i < col1_c else (1, i - col1_c)
             x_pos = start_x + col * (button_width + spacing)
             y_pos = start_y + row_in_col * (button_height + spacing)
-            if col == 1 and row_in_col == 0: y_pos = start_y # Adjust y for second column start
+            if col == 1 and row_in_col == 0: y_pos = start_y
 
-            is_enabled = enabled_check() if enabled_check else True # Call the lambda if it exists
+            is_enabled = enabled_check(game_state) if enabled_check and callable(enabled_check) else True # Pass game_state to lambda
             main_menu_buttons.append(
                 _create_action_button(text, action, x_pos, y_pos, button_width, button_height, is_enabled=is_enabled)
             )
@@ -817,17 +828,16 @@ def _get_active_buttons(current_view_local: str, game_state: Any, player_inv: Pl
         informant_view_buttons.append(_create_back_button()); return informant_view_buttons
     elif current_view_local == "market":
         market_view_buttons.append(_create_back_button()); col_xs={"actions":650}; act_btn_w,act_btn_h=70,22
-        if current_region and current_region.drug_market_data:
-            sorted_drugs = sorted(current_region.drug_market_data.keys(), key=lambda d: d.value)
+        if current_player_region_obj and current_player_region_obj.drug_market_data: # Use current_player_region_obj
+            sorted_drugs = sorted(current_player_region_obj.drug_market_data.keys(), key=lambda d: d.value)
             btn_y_off=105; line_h=28; cur_btn_y=btn_y_off
             for drug_n in sorted_drugs:
-                drug_data=current_region.drug_market_data[drug_n]; qualities_avail=drug_data.get("available_qualities",{})
+                drug_data=current_player_region_obj.drug_market_data[drug_n]; qualities_avail=drug_data.get("available_qualities",{})
                 if not qualities_avail: continue
                 for qual_enum in sorted(qualities_avail.keys(),key=lambda q:q.value):
                     if cur_btn_y>SCREEN_HEIGHT-100:break
-                    buy_p,sell_p=current_region.get_buy_price(drug_n,qual_enum),current_region.get_sell_price(drug_n,qual_enum)
-                    # Pass player_inv.heat to get_available_stock
-                    mkt_stock=current_region.get_available_stock(drug_n,qual_enum, player_inv.heat); player_item=player_inv.get_drug_item(drug_n,qual_enum)
+                    buy_p,sell_p=current_player_region_obj.get_buy_price(drug_n,qual_enum),current_player_region_obj.get_sell_price(drug_n,qual_enum)
+                    mkt_stock=current_player_region_obj.get_available_stock(drug_n,qual_enum, player_inv.heat); player_item=player_inv.get_drug_item(drug_n,qual_enum)
                     p_has_stock=player_item['quantity']if player_item else 0; can_buy=buy_p>0 and mkt_stock>0 and player_inv.cash>=buy_p; can_sell=sell_p>0 and p_has_stock>0
                     buy_x,sell_x=col_xs["actions"],col_xs["actions"]+act_btn_w+5
                     market_buy_sell_buttons.append(_create_action_button("Buy",functools.partial(action_initiate_buy,drug_n,qual_enum,buy_p,mkt_stock),buy_x,cur_btn_y-2,act_btn_w,act_btn_h,font=FONT_XSMALL,is_enabled=can_buy))
@@ -837,15 +847,19 @@ def _get_active_buttons(current_view_local: str, game_state: Any, player_inv: Pl
         return market_view_buttons+market_buy_sell_buttons
     elif current_view_local=="market_buy_input" or current_view_local=="market_sell_input":
         conf_y=input_box_rect.bottom+80
-        transaction_input_buttons.append(_create_action_button("Confirm",functools.partial(action_confirm_transaction,player_inv,current_region,game_state),SCREEN_WIDTH//2-button_width-spacing//2,conf_y,button_width,button_height,font=FONT_SMALL))
+        transaction_input_buttons.append(_create_action_button("Confirm",functools.partial(action_confirm_transaction,player_inv,current_player_region_obj,game_state),SCREEN_WIDTH//2-button_width-spacing//2,conf_y,button_width,button_height,font=FONT_SMALL)) # Pass game_state (instance)
         transaction_input_buttons.append(_create_action_button("Cancel",action_cancel_transaction,SCREEN_WIDTH//2+spacing//2,conf_y,button_width,button_height,font=FONT_SMALL)); return transaction_input_buttons
     elif current_view_local=="inventory": inventory_view_buttons.append(_create_back_button()); return inventory_view_buttons
     elif current_view_local=="travel":
         trav_defs=[]
-        for r_enum in RegionName:
-            if r_enum==current_region.name:continue
-            dest_r_obj=game_state.all_regions[r_enum]; trav_cost=50
-            trav_defs.append((f"{dest_r_obj.name.value} (${trav_cost})",functools.partial(action_travel_to_region,dest_r_obj,player_inv,game_state),lambda tc=trav_cost:player_inv.cash>=tc))
+        all_regions = game_state.get_all_regions() # Get all regions from GameState instance
+        if current_player_region_obj: # Ensure current_player_region_obj is not None
+            for r_enum in RegionName:
+                if r_enum == current_player_region_obj.name: continue # Compare with enum name
+                dest_r_obj = all_regions.get(r_enum)
+                if dest_r_obj:
+                    trav_cost = 50 # Example travel cost
+                    trav_defs.append((f"{dest_r_obj.name.value} (${trav_cost})", functools.partial(action_travel_to_region, dest_r_obj, player_inv, game_state), lambda tc=trav_cost: player_inv.cash >= tc))
         travel_view_buttons.extend(_create_button_list_vertical(start_x,120,button_width,button_height,spacing,trav_defs)); travel_view_buttons.append(_create_back_button()); return travel_view_buttons
     elif current_view_local in ["tech_contact","tech_input_coin_select","tech_input_amount"]:
         tech_y_start=SCREEN_HEIGHT-STD_BUTTON_HEIGHT*4-STD_BUTTON_SPACING*4-20; tech_w,tech_h=220,40; tech_c1_x,tech_c2_x=50,SCREEN_WIDTH//2+50
