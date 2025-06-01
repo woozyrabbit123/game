@@ -9,11 +9,12 @@ from ..core.enums import DrugQuality, DrugName, EventType, SkillID
 from ..core.player_inventory import PlayerInventory
 from ..core.ai_rival import AIRival
 # It's better to import GameState if it's going to be used as a type hint
-# from ..game_state import GameState # Placeholder if needed
+from ..game_state import GameState # Import GameState
 from .. import game_configs
 
 
-def _create_and_add_demand_spike(region: Region, current_day: int):
+def _create_and_add_demand_spike(region: Region, game_state_instance: GameState): # Added game_state_instance
+    current_day = game_state_instance.current_day # Get current_day from instance
     potential_targets = []
     # drug_name from region.drug_market_data.items() is already DrugName enum
     for drug_name_enum, drug_data in region.drug_market_data.items():
@@ -32,12 +33,12 @@ def _create_and_add_demand_spike(region: Region, current_day: int):
             return
 
     event = MarketEvent(
-        event_type=EventType.DEMAND_SPIKE, # Use EventType
-        target_drug_name=target_drug_name_enum, # Pass DrugName enum directly
+        event_type=EventType.DEMAND_SPIKE,
+        target_drug_name=target_drug_name_enum,
         target_quality=target_quality,
-        sell_price_multiplier=random.uniform(1.2, 1.8),
-        buy_price_multiplier=random.uniform(1.0, 1.3),
-        duration_remaining_days=random.randint(2, 4),
+        sell_price_multiplier=random.uniform(game_configs.EVENT_CONFIGS["DEMAND_SPIKE"]["SELL_PRICE_MULT_MIN"], game_configs.EVENT_CONFIGS["DEMAND_SPIKE"]["SELL_PRICE_MULT_MAX"]),
+        buy_price_multiplier=random.uniform(game_configs.EVENT_CONFIGS["DEMAND_SPIKE"]["BUY_PRICE_MULT_MIN"], game_configs.EVENT_CONFIGS["DEMAND_SPIKE"]["BUY_PRICE_MULT_MAX"]),
+        duration_remaining_days=random.randint(game_configs.EVENT_CONFIGS["DEMAND_SPIKE"]["DURATION_DAYS_MIN"], game_configs.EVENT_CONFIGS["DEMAND_SPIKE"]["DURATION_DAYS_MAX"]),
         start_day=current_day
     )
     region.active_market_events.append(event)
@@ -47,20 +48,18 @@ def _create_and_add_demand_spike(region: Region, current_day: int):
     print(f"\nMarket Buzz: Demand for {target_quality.name} {drug_name_str} is surging in {region_name_str} for {event.duration_remaining_days} days!")
 
 
-def _create_and_add_supply_disruption(
+def _create_and_add_supply_disruption( # Removed game_configs_data from signature
     region: Region,
     current_day: int,
-    player_heat: int, # From 'main' branch
-    game_configs: Any,
+    game_state_instance: GameState,
     show_event_message_callback: Callable[[str], None],
     add_to_log_callback: Callable[[str], None]
 ):
     potential_targets = []
-    # drug_name_enum from region.drug_market_data.items() is already DrugName enum
     for drug_name_enum, drug_data in region.drug_market_data.items():
         if drug_data.get("tier", 0) in [2, 3]:
             for quality_key in drug_data.get("available_qualities", {}).keys():
-                if region.get_available_stock(drug_name_enum, quality_key, player_heat) > 0:
+                if region.get_available_stock(drug_name_enum, quality_key, game_state_instance) > 0: # Pass game_state_instance
                     potential_targets.append((drug_name_enum, quality_key))
 
     if not potential_targets:
@@ -79,12 +78,13 @@ def _create_and_add_supply_disruption(
             add_to_log_callback(f"SupplyDisruption: Event already active for {drug_name_str} ({target_quality_enum.name}) in {region_name_str}.")
             return
 
-    duration = game_configs.SUPPLY_DISRUPTION_EVENT_DURATION_DAYS
-    reduction_factor = 1.0 - game_configs.SUPPLY_DISRUPTION_STOCK_REDUCTION_PERCENT
-    min_stock = game_configs.MIN_STOCK_AFTER_DISRUPTION
+    cfg = game_configs.EVENT_CONFIGS["SUPPLY_DISRUPTION"]
+    duration = cfg["DURATION_DAYS"]
+    reduction_factor = 1.0 - cfg["STOCK_REDUCTION_PERCENT"]
+    min_stock = cfg["MIN_STOCK_AFTER_EVENT"]
 
     event = MarketEvent(
-        event_type=EventType.SUPPLY_DISRUPTION, # Use EventType
+        event_type=EventType.SUPPLY_DISRUPTION,
         target_drug_name=target_drug_name_enum, # Pass DrugName enum directly
         target_quality=target_quality_enum,
         sell_price_multiplier=1.0, # Not used directly, effect applied via stock_reduction_factor
@@ -106,10 +106,10 @@ def _create_and_add_police_crackdown(region: Region, current_day: int):
         if ev.event_type == EventType.POLICE_CRACKDOWN: # Use EventType
             return
 
-    duration = random.randint(2, 4)
-    heat_amount = random.randint(10, 30)
+    duration = random.randint(game_configs.EVENT_CONFIGS["POLICE_CRACKDOWN"]["DURATION_DAYS_MIN"], game_configs.EVENT_CONFIGS["POLICE_CRACKDOWN"]["DURATION_DAYS_MAX"])
+    heat_amount = random.randint(game_configs.EVENT_CONFIGS["POLICE_CRACKDOWN"]["HEAT_INCREASE_MIN"], game_configs.EVENT_CONFIGS["POLICE_CRACKDOWN"]["HEAT_INCREASE_MAX"])
     event = MarketEvent(
-        event_type=EventType.POLICE_CRACKDOWN, # Use EventType
+        event_type=EventType.POLICE_CRACKDOWN,
         target_drug_name=None,
         target_quality=None,
         sell_price_multiplier=1.0, # No direct price effect from this event type
@@ -146,13 +146,13 @@ def _create_and_add_cheap_stash(region: Region, current_day: int): # Renamed fro
     
     event = MarketEvent(
         event_type=EventType.CHEAP_STASH, # Use EventType
-        target_drug_name=target_drug_name_enum, # Pass DrugName enum
+        target_drug_name=target_drug_name_enum,
         target_quality=target_quality,
-        sell_price_multiplier=1.0, # CHEAP_STASH primarily affects buy price for player
-        buy_price_multiplier=random.uniform(0.6, 0.8),
-        duration_remaining_days=random.randint(1, 2),
+        sell_price_multiplier=1.0,
+        buy_price_multiplier=random.uniform(game_configs.EVENT_CONFIGS["CHEAP_STASH"]["BUY_PRICE_MULT_MIN"], game_configs.EVENT_CONFIGS["CHEAP_STASH"]["BUY_PRICE_MULT_MAX"]),
+        duration_remaining_days=random.randint(game_configs.EVENT_CONFIGS["CHEAP_STASH"]["DURATION_DAYS_MIN"], game_configs.EVENT_CONFIGS["CHEAP_STASH"]["DURATION_DAYS_MAX"]),
         start_day=current_day,
-        temporary_stock_increase=random.randint(50, 150)
+        temporary_stock_increase=random.randint(game_configs.EVENT_CONFIGS["CHEAP_STASH"]["TEMP_STOCK_INCREASE_MIN"], game_configs.EVENT_CONFIGS["CHEAP_STASH"]["TEMP_STOCK_INCREASE_MAX"])
     )
     region.active_market_events.append(event)
     drug_name_str = target_drug_name_enum.value if isinstance(target_drug_name_enum, DrugName) else target_drug_name_enum
@@ -180,24 +180,21 @@ def _create_and_add_the_setup(region: Region, current_day: int, player_inventory
         return
 
     deal_quality = random.choice(list(region.drug_market_data[deal_drug_name_enum]["available_qualities"].keys()))
-    deal_quantity = random.randint(20, 100)
+    deal_quantity = random.randint(game_configs.EVENT_CONFIGS["THE_SETUP"]["DEAL_QUANTITY_MIN"], game_configs.EVENT_CONFIGS["THE_SETUP"]["DEAL_QUANTITY_MAX"])
     base_buy_price = region.drug_market_data[deal_drug_name_enum]["base_buy_price"]
     base_sell_price = region.drug_market_data[deal_drug_name_enum]["base_sell_price"]
 
-    from ..core.drug import Drug # Corrected import path
-    # Pass .value of enum if Drug constructor expects string
+    from ..core.drug import Drug
     temp_drug_for_mult = Drug(deal_drug_name_enum.value, tier, base_buy_price, base_sell_price, deal_quality)
     quality_mult_buy = temp_drug_for_mult.get_quality_multiplier("buy")
     quality_mult_sell = temp_drug_for_mult.get_quality_multiplier("sell")
     
     if is_buy_deal:
-        deal_price_per_unit = base_buy_price * quality_mult_buy * random.uniform(0.2, 0.4)
-        # Check player cash against potential deal cost
-        if player_inventory.cash < deal_price_per_unit * (deal_quantity / 2): # Heuristic: player might not afford half
+        deal_price_per_unit = base_buy_price * quality_mult_buy * random.uniform(game_configs.EVENT_CONFIGS["THE_SETUP"]["BUY_DEAL_PRICE_MULT_MIN"], game_configs.EVENT_CONFIGS["THE_SETUP"]["BUY_DEAL_PRICE_MULT_MAX"])
+        if player_inventory.cash < deal_price_per_unit * (deal_quantity / 2):
             return
     else: # Sell deal
-        deal_price_per_unit = base_sell_price * quality_mult_sell * random.uniform(2.0, 3.5)
-        # Check if player has at least some of the drug to sell (even if not the full quantity)
+        deal_price_per_unit = base_sell_price * quality_mult_sell * random.uniform(game_configs.EVENT_CONFIGS["THE_SETUP"]["SELL_DEAL_PRICE_MULT_MIN"], game_configs.EVENT_CONFIGS["THE_SETUP"]["SELL_DEAL_PRICE_MULT_MAX"])
         has_any_of_drug = False
         # player_inventory.items keys should be DrugName enums if fully refactored
         for qual_check in player_inventory.items.get(deal_drug_name_enum, {}):
@@ -209,14 +206,14 @@ def _create_and_add_the_setup(region: Region, current_day: int, player_inventory
 
     deal_price_per_unit = round(max(1.0, deal_price_per_unit), 2)
     event = MarketEvent(
-        event_type=EventType.THE_SETUP, # Use EventType
-        target_drug_name=None, # THE_SETUP is a deal, not a market-wide effect on a target drug
+        event_type=EventType.THE_SETUP,
+        target_drug_name=None,
         target_quality=None,
         sell_price_multiplier=1.0,
         buy_price_multiplier=1.0,
-        duration_remaining_days=1, # Usually a one-time opportunity
+        duration_remaining_days=game_configs.EVENT_CONFIGS["THE_SETUP"]["DURATION_DAYS"],
         start_day=current_day,
-        deal_drug_name=deal_drug_name_enum, # Pass DrugName enum
+        deal_drug_name=deal_drug_name_enum,
         deal_quality=deal_quality,
         deal_quantity=deal_quantity,
         deal_price_per_unit=deal_price_per_unit,
@@ -239,10 +236,10 @@ def _create_and_add_rival_busted(region: Region, current_day: int, ai_rivals: Li
             return
 
     busted_rival.is_busted = True
-    busted_rival.busted_days_remaining = random.randint(5, 10)
+    busted_rival.busted_days_remaining = random.randint(game_configs.EVENT_CONFIGS["RIVAL_BUSTED"]["DURATION_DAYS_MIN"], game_configs.EVENT_CONFIGS["RIVAL_BUSTED"]["DURATION_DAYS_MAX"])
 
     event = MarketEvent(
-        event_type=EventType.RIVAL_BUSTED, # Use EventType
+        event_type=EventType.RIVAL_BUSTED,
         target_drug_name=busted_rival.name, # This remains a string (rival's name)
         target_quality=None, # No specific drug quality for this event type
         sell_price_multiplier=1.0, # No direct price effect
@@ -257,10 +254,9 @@ def _create_and_add_rival_busted(region: Region, current_day: int, ai_rivals: Li
     print(f"\nMajor News: Notorious dealer {busted_rival.name} has been BUSTED by authorities! They'll be out of action for about {busted_rival.busted_days_remaining} days.")
 
 
-def _create_and_add_drug_market_crash(
+def _create_and_add_drug_market_crash( # Removed game_configs from signature
     region: Region,
     current_day: int,
-    game_configs: Any, # For accessing DRUG_CRASH constants
     show_event_message_callback: Callable[[str], None],
     add_to_log_callback: Callable[[str], None]
 ):
@@ -289,12 +285,13 @@ def _create_and_add_drug_market_crash(
             add_to_log_callback(f"DrugMarketCrash: Event already active for {drug_name_str} ({target_quality_enum.name}) in {region_name_str}.")
             return
 
-    duration = game_configs.DRUG_CRASH_EVENT_DURATION_DAYS
-    reduction_percent = game_configs.DRUG_CRASH_PRICE_REDUCTION_PERCENT
-    min_price = game_configs.MINIMUM_DRUG_PRICE
+    cfg = game_configs.EVENT_CONFIGS["DRUG_MARKET_CRASH"]
+    duration = cfg["DURATION_DAYS"]
+    reduction_percent = cfg["PRICE_REDUCTION_PERCENT"]
+    min_price = cfg["MINIMUM_PRICE_AFTER_CRASH"]
 
     event = MarketEvent(
-        event_type=EventType.DRUG_MARKET_CRASH, # Use EventType
+        event_type=EventType.DRUG_MARKET_CRASH,
         target_drug_name=target_drug_name_enum, # Pass DrugName enum
         target_quality=target_quality_enum,
         sell_price_multiplier=1.0,
@@ -336,15 +333,16 @@ def _create_and_add_black_market_event(region: Region, current_day: int, player_
     if is_specific_event_active:
         return
 
-    quantity = random.randint(game_configs.BLACK_MARKET_MIN_QUANTITY, game_configs.BLACK_MARKET_MAX_QUANTITY)
+    cfg = game_configs.EVENT_CONFIGS["BLACK_MARKET_OPPORTUNITY"]
+    quantity = random.randint(cfg["MIN_QUANTITY"], cfg["MAX_QUANTITY"])
 
     event = MarketEvent(
-        event_type=EventType.BLACK_MARKET_OPPORTUNITY, # Use EventType
-        target_drug_name=chosen_drug_name_enum, # Pass DrugName enum
+        event_type=EventType.BLACK_MARKET_OPPORTUNITY,
+        target_drug_name=chosen_drug_name_enum,
         target_quality=chosen_quality,
-        buy_price_multiplier=(1.0 - game_configs.BLACK_MARKET_PRICE_REDUCTION_PERCENT),
+        buy_price_multiplier=(1.0 - cfg["PRICE_REDUCTION_PERCENT"]),
         sell_price_multiplier=1.0,
-        duration_remaining_days=game_configs.BLACK_MARKET_EVENT_DURATION_DAYS,
+        duration_remaining_days=cfg["DURATION_DAYS"],
         start_day=current_day,
         black_market_quantity_available=quantity
     )
@@ -354,8 +352,8 @@ def _create_and_add_black_market_event(region: Region, current_day: int, player_
     drug_name_str = chosen_drug_name_enum.value
     region_name_str = region.name.value if isinstance(region.name, Enum) else region.name
     log_message = (f"Black Market Alert! {drug_name_str} ({chosen_quality.name}) in {region_name_str} "
-                   f"available at {game_configs.BLACK_MARKET_PRICE_REDUCTION_PERCENT*100:.0f}% discount. "
-                   f"Qty: {quantity}, for {game_configs.BLACK_MARKET_EVENT_DURATION_DAYS} day(s). "
+                   f"available at {cfg['PRICE_REDUCTION_PERCENT']*100:.0f}% discount. "
+                   f"Qty: {quantity}, for {cfg['DURATION_DAYS']} day(s). "
                    f"Effective Buy Price Multiplier: {event.buy_price_multiplier:.2f}")
 
     if show_event_message_callback:
@@ -366,13 +364,14 @@ def _create_and_add_black_market_event(region: Region, current_day: int, player_
 
 def trigger_random_market_event(
     region: Region,
-    current_day: int,
-    player_inventory: PlayerInventory, # Assuming PlayerInventory provides .heat for some event creations
+    game_state: GameState, # Changed from current_day to game_state
+    player_inventory: PlayerInventory,
     ai_rivals: List[AIRival],
     show_event_message_callback: Callable[[str], None],
     game_configs_data: Any,
     add_to_log_callback: Callable[[str], None]
 ) -> Optional[str]:
+    current_day = game_state.current_day # Derive current_day from game_state
 
     # Independent chance for Black Market event
     # We want this to potentially happen even if a black market event also occurs,
@@ -437,22 +436,25 @@ def trigger_random_market_event(
         # or a more generic signature for creation functions.
         # For now, specific calls based on type:
         if chosen_event_type_enum == EventType.DEMAND_SPIKE:
-            creation_func(region, current_day)
+            creation_func(region, game_state) # Pass game_state
         elif chosen_event_type_enum == EventType.SUPPLY_DISRUPTION:
             # Assuming player_inventory has 'heat' attribute. If not, this needs adjustment or mock.
             # For now, let's assume player_inventory.heat exists.
-            player_heat = getattr(player_inventory, 'heat', 0) # Safely get heat
-            creation_func(region, current_day, player_heat, game_configs_data, show_event_message_callback, add_to_log_callback)
+            # player_heat = getattr(player_inventory, 'heat', 0) # Safely get heat
+            # _create_and_add_supply_disruption expects game_state as its third positional arg now
+            # It no longer takes game_configs_data directly.
+            creation_func(region, current_day, game_state, show_event_message_callback, add_to_log_callback)
         elif chosen_event_type_enum == EventType.POLICE_CRACKDOWN:
-            creation_func(region, current_day)
+            creation_func(region, current_day) # TODO: Update to pass game_state if signature changes
         elif chosen_event_type_enum == EventType.CHEAP_STASH:
-            creation_func(region, current_day)
+            creation_func(region, current_day) # TODO: Update to pass game_state if signature changes
         elif chosen_event_type_enum == EventType.THE_SETUP:
-            creation_func(region, current_day, player_inventory)
+            creation_func(region, current_day, player_inventory) # TODO: Update to pass game_state if signature changes
         elif chosen_event_type_enum == EventType.RIVAL_BUSTED:
-            creation_func(region, current_day, ai_rivals)
+            creation_func(region, current_day, ai_rivals) # TODO: Update to pass game_state if signature changes
         elif chosen_event_type_enum == EventType.DRUG_MARKET_CRASH:
-            creation_func(region, current_day, game_configs_data, show_event_message_callback, add_to_log_callback)
+            # Drug market crash no longer takes game_configs_data directly
+            creation_func(region, current_day, show_event_message_callback, add_to_log_callback)
         # else:
             # add_to_log_callback(f"EventManager: Unhandled event type chosen: {chosen_event_type_enum.value}")
         return None # Event creation functions handle their own prints/messages
@@ -516,16 +518,19 @@ def update_active_events(region: Region):
 
 
 # Placeholder for missing function - TODO: Implement actual police stop logic
-def check_and_trigger_police_stop(region: 'Region', player_inventory: 'PlayerInventory', game_state: 'Any') -> bool:
+def check_and_trigger_police_stop(region: Region, player_inventory: PlayerInventory, game_state: GameState) -> bool: # Updated type hint
     """
     Placeholder for police stop logic.
     Currently does nothing and always returns False (no event triggered).
+    If implemented, would use `game_state` (GameState instance) for e.g. current_day, global modifiers etc.
     """
     # from ..core.region import Region # Avoid circular if Region is already imported
     # from ..core.player_inventory import PlayerInventory # Avoid circular
-    # print(f"DEBUG: check_and_trigger_police_stop called for region {region.name if hasattr(region, 'name') else 'Unknown'}, player has {player_inventory.cash if hasattr(player_inventory, 'cash') else 'Unknown'} cash.")
+    # Example usage if it were implemented:
+    # current_day = game_state.current_day
+    # global_police_activity_modifier = game_state.get_global_modifier("police_activity") # Hypothetical
+    # print(f"DEBUG: check_and_trigger_police_stop called for region {region.name if hasattr(region, 'name') else 'Unknown'} on day {current_day}.")
     # Actual logic for determining if a police stop occurs would go here.
-    # This would involve checking region heat, player status, game configs, etc.
     return False # Indicates no police stop event was triggered
 
 

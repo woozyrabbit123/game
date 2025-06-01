@@ -5,17 +5,18 @@ from typing import List, Dict, Tuple, Optional
 from ...core.region import Region
 from ...core.player_inventory import PlayerInventory
 from ...core.ai_rival import AIRival
-from ...core.enums import DrugQuality
-from ...core.market_event import MarketEvent 
-
+from ...core.enums import DrugQuality, DrugName, RegionName # Added Enums
+from ...core.market_event import MarketEvent
+from ...game_state import GameState # Import GameState
 from .ui_helpers import parse_drug_quality, print_market_header
 from ...mechanics.market_impact import (apply_player_buy_impact, apply_player_sell_impact,
                                      decay_player_market_impact, process_rival_turn, 
                                      decay_rival_market_impact, decay_regional_heat)
-from ... import game_state 
-from ...game_configs import ( # Import all necessary configs
+# from ... import game_state # Removed old game_state import
+from ... import game_configs # Import game_configs module
+from ...game_configs import (
     CAPACITY_UPGRADE_COST_INITIAL, CAPACITY_UPGRADE_COST_MULTIPLIER, CAPACITY_UPGRADE_AMOUNT, 
-    SKILL_POINTS_PER_X_DAYS, SKILL_MARKET_INTUITION_COST, SKILL_DIGITAL_FOOTPRINT_COST, # Added OpSec Skill
+    SKILL_POINTS_PER_X_DAYS, SKILL_MARKET_INTUITION_COST, SKILL_DIGITAL_FOOTPRINT_COST,
     INFORMANT_TIP_COST, INFORMANT_TRUST_GAIN_PER_TIP, INFORMANT_MAX_TRUST,
     CRYPTO_VOLATILITY, CRYPTO_MIN_PRICE, TECH_CONTACT_FEE_PERCENT, 
     HEAT_FROM_SELLING_DRUG_TIER, HEAT_FROM_CRYPTO_TRANSACTION,
@@ -31,15 +32,20 @@ from ...game_configs import ( # Import all necessary configs
     CORRUPT_OFFICIAL_BRIBE_COST_PER_HEAT_POINT,
     LAUNDERING_FEE_PERCENT, LAUNDERING_DELAY_DAYS, MAX_ACTIVE_LAUNDERING_OPERATIONS, 
     SETUP_EVENT_STING_CHANCE_BASE, SETUP_EVENT_STING_CHANCE_HEAT_MODIFIER,
-    DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT, SECURE_PHONE_COST, # New OpSec
-    SECURE_PHONE_HEAT_REDUCTION_PERCENT, SKILL_PHONE_STACKING_HEAT_REDUCTION_PERCENT # New OpSec
+    DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT, SECURE_PHONE_COST,
+    SECURE_PHONE_HEAT_REDUCTION_PERCENT, SKILL_PHONE_STACKING_HEAT_REDUCTION_PERCENT
 )
 
+# Note: Most handlers will now take game_state_instance: GameState as first arg
 
-# ... (handle_police_stop_event, check_and_trigger_police_stop, handle_view_inventory, handle_buy_drug, handle_sell_drug as before - no direct changes needed in their existing logic for these new features, but handle_sell_drug already has heat generation)
-# Minor correction in handle_police_stop_event for passing crypto map to recursive handle_advance_day
-def handle_police_stop_event(region: Region, player_inventory: PlayerInventory, all_regions: Dict[str, Region], current_day: int, ai_rivals: List[AIRival], crypto_volatility_map: Dict[str, float], crypto_min_prices_map: Dict[str, float]) -> Optional[int]: # ... (as before)
-    separator = "="*40; print("\n" + separator); print("!!! POLICE STOP !!!".center(len(separator))); print("Red and blue lights flash! You're pulled over.".center(len(separator))); print(f"(Current heat in {region.name}: {region.current_heat})".center(len(separator))); print(separator)
+def handle_police_stop_event(game_state_instance: GameState, player_inventory: PlayerInventory) -> Optional[int]:
+    region = game_state_instance.get_current_player_region()
+    all_regions = game_state_instance.get_all_regions() # Dict[RegionName, Region]
+    current_day = game_state_instance.current_day
+    ai_rivals = game_state_instance.ai_rivals
+    # Crypto maps are now sourced from game_configs within handle_advance_day if needed
+
+    separator = "="*40; print("\n" + separator); print("!!! POLICE STOP !!!".center(len(separator))); print("Red and blue lights flash! You're pulled over.".center(len(separator))); print(f"(Current heat in {region.name.value}: {region.current_heat})".center(len(separator))); print(separator)
     new_current_day_after_jail = None
     while True:
         print("\nYour options:"); print("  1. Attempt to Bribe Officer"); print("  2. Comply (Allow Search)"); choice = input("What do you do? (1-2): ").strip()
@@ -61,52 +67,60 @@ def handle_police_stop_event(region: Region, player_inventory: PlayerInventory, 
             if not player_inventory.items or random.random() > CONFISCATION_CHANCE_ON_SEARCH : print("Surprisingly, they don't find anything illicit. 'Alright, you're free to go. Stay out of trouble.'"); print(separator + "\n"); return None
             else:
                 print("'Aha! What do we have here? Looks like your lucky day just ran out.'"); drugs_found_during_search = True
-                # ... (confiscation logic as before) ...
-                drug_to_confiscate_name = random.choice(list(player_inventory.items.keys())); qualities_of_drug = player_inventory.items[drug_to_confiscate_name]; quality_to_confiscate = random.choice(list(qualities_of_drug.keys()))
-                current_quantity = qualities_of_drug[quality_to_confiscate]; confiscation_percentage = random.uniform(CONFISCATION_PERCENTAGE_MIN, CONFISCATION_PERCENTAGE_MAX)
-                quantity_to_confiscate = math.ceil(current_quantity * confiscation_percentage); quantity_to_confiscate = max(1, quantity_to_confiscate) if current_quantity > 0 else 0; quantity_to_confiscate = min(current_quantity, quantity_to_confiscate)
+                drug_to_confiscate_name_enum = random.choice(list(player_inventory.items.keys()))
+                qualities_of_drug = player_inventory.items[drug_to_confiscate_name_enum]
+                quality_to_confiscate_enum = random.choice(list(qualities_of_drug.keys()))
+                current_quantity = qualities_of_drug[quality_to_confiscate_enum]
+                confiscation_percentage = random.uniform(CONFISCATION_PERCENTAGE_MIN, CONFISCATION_PERCENTAGE_MAX)
+                quantity_to_confiscate = math.ceil(current_quantity * confiscation_percentage)
+                quantity_to_confiscate = max(1, quantity_to_confiscate) if current_quantity > 0 else 0
+                quantity_to_confiscate = min(current_quantity, quantity_to_confiscate)
                 if quantity_to_confiscate > 0:
-                    player_inventory.remove_drug(drug_to_confiscate_name, quality_to_confiscate, quantity_to_confiscate)
-                    print(f"CONFISCATED: {quantity_to_confiscate} units of {quality_to_confiscate.name} {drug_to_confiscate_name}.")
-                    heat_increase_on_bust = random.randint(5, 15); region.modify_heat(heat_increase_on_bust); print(f"This incident has drawn more attention in {region.name}. (Heat +{heat_increase_on_bust})")
+                    player_inventory.remove_drug(drug_to_confiscate_name_enum, quality_to_confiscate_enum, quantity_to_confiscate)
+                    print(f"CONFISCATED: {quantity_to_confiscate} units of {quality_to_confiscate_enum.name} {drug_to_confiscate_name_enum.value}.") # Use .value for enum
+                    heat_increase_on_bust = random.randint(5, 15); region.modify_heat(heat_increase_on_bust); print(f"This incident has drawn more attention in {region.name.value}. (Heat +{heat_increase_on_bust})")
                 else: print("They rummage through your things but don't confiscate anything specific this time. 'Watch yourself.'")
 
                 if drugs_found_during_search:
-                    current_chance_of_jail = 0.0 # ... (jail chance logic as before) ...
+                    current_chance_of_jail = 0.0
                     if region.current_heat >= JAIL_CHANCE_HEAT_THRESHOLD: current_chance_of_jail += 0.2
                     has_high_tier_drugs = False
-                    for drug_name_inv, qualities_inv in player_inventory.items.items():
-                        drug_tier = 0; # ... (get tier logic)
-                        if drug_name_inv in region.drug_market_data : drug_tier = region.drug_market_data.get(drug_name_inv, {}).get("tier", 0)
+                    for drug_name_inv_enum, qualities_inv in player_inventory.items.items():
+                        drug_tier = 0
+                        # Get tier from current region, or any region if not in current
+                        if drug_name_inv_enum in region.drug_market_data : drug_tier = region.drug_market_data.get(drug_name_inv_enum, {}).get("tier", 0)
                         else: 
-                            for r_obj in all_regions.values():
-                                if drug_name_inv in r_obj.drug_market_data: drug_tier = r_obj.drug_market_data.get(drug_name_inv, {}).get("tier",0); break
-                        if drug_tier >= 3 and any(qualities_inv.values()): has_high_tier_drugs = True; break
+                            for r_obj in all_regions.values(): # all_regions is Dict[RegionName, Region]
+                                if drug_name_inv_enum in r_obj.drug_market_data: drug_tier = r_obj.drug_market_data.get(drug_name_inv_enum, {}).get("tier",0); break
+                        if drug_tier >= 3 and any(q_data['quantity'] > 0 for q_data in qualities_inv.values()): has_high_tier_drugs = True; break # Check actual quantity
                     if has_high_tier_drugs: current_chance_of_jail += JAIL_CHANCE_IF_HIGH_TIER_DRUGS_FOUND
                     current_chance_of_jail = min(current_chance_of_jail, 0.75)
 
                     if random.random() < current_chance_of_jail:
                         days_in_jail = JAIL_TIME_DAYS_BASE + int((region.current_heat - JAIL_CHANCE_HEAT_THRESHOLD) * JAIL_TIME_HEAT_MULTIPLIER); days_in_jail = max(JAIL_TIME_DAYS_BASE, days_in_jail)
                         print(f"\nThis is serious! You're arrested and sentenced to {days_in_jail} days in jail!"); print("You lose time while locked up...")
-                        temp_current_day = current_day
+                        temp_current_day = game_state_instance.current_day # Use day from instance
                         for i in range(days_in_jail):
                             print(f"...Day {temp_current_day + 1} passes in a blur...")
-                            # Pass all required args, including crypto maps
-                            temp_current_day = handle_advance_day(all_regions, temp_current_day, region, ai_rivals, player_inventory, crypto_volatility_map, crypto_min_prices_map, is_jailed_turn=True)
+                            # Pass game_state_instance to handle_advance_day
+                            temp_current_day = handle_advance_day(game_state_instance, player_inventory, is_jailed_turn=True)
                         new_current_day_after_jail = temp_current_day 
                         print(f"You're finally released. It's Day {new_current_day_after_jail}."); print(separator + "\n"); return new_current_day_after_jail
                 print("You got off with a warning and a hefty 'fine' (confiscation), but they'll be watching you."); print(separator + "\n"); return None
         else: print("Invalid choice. The officer is waiting...")
     return None
-def check_and_trigger_police_stop(current_region: Region, player_inventory: PlayerInventory, all_regions: Dict[str, Region], current_day: int, ai_rivals: List[AIRival], crypto_volatility_map: Dict[str, float], crypto_min_prices_map: Dict[str, float]) -> Optional[int]: # ... (as before)
-    if current_region.current_heat < POLICE_STOP_HEAT_THRESHOLD: return None
+
+def check_and_trigger_police_stop(game_state_instance: GameState, player_inventory: PlayerInventory) -> Optional[int]:
+    current_region = game_state_instance.get_current_player_region()
+    if not current_region or current_region.current_heat < POLICE_STOP_HEAT_THRESHOLD: return None
     heat_above_threshold = current_region.current_heat - POLICE_STOP_HEAT_THRESHOLD
     chance_of_stop = POLICE_STOP_BASE_CHANCE + (heat_above_threshold * POLICE_STOP_CHANCE_PER_HEAT_POINT_ABOVE_THRESHOLD)
     chance_of_stop = max(0.05, min(chance_of_stop, 0.75)) 
     if random.random() < chance_of_stop:
-        return handle_police_stop_event(current_region, player_inventory, all_regions, current_day, ai_rivals, crypto_volatility_map, crypto_min_prices_map)
+        return handle_police_stop_event(game_state_instance, player_inventory)
     return None
-def handle_view_inventory(player_inventory: PlayerInventory, content_pad, log_win, input_win):
+
+def handle_view_inventory(game_state_instance: GameState, player_inventory: PlayerInventory, content_pad, log_win, input_win):
     import curses
     content_pad.clear()
     max_y, max_x = content_pad.getmaxyx()
@@ -341,66 +355,112 @@ def handle_sell_drug(region: Region, player_inventory: PlayerInventory, content_
         log_win.noutrefresh()
         curses.doupdate()
 
-def handle_advance_day(all_game_regions: Dict[str, Region], current_day: int, current_player_region: Region, player_inventory: PlayerInventory, ai_rivals: List[AIRival], content_pad, log_win, input_win):
-    import curses
-    # Advance day logic (events, rival turns, laundering, etc.)
-    # This is a simplified version; full logic should match your previous implementation
+def handle_advance_day(game_state_instance: GameState, player_inventory: PlayerInventory, content_pad, log_win, input_win, is_jailed_turn: bool = False):
+    import curses # Assuming curses is used for UI updates within this handler
+
+    game_state_instance.current_day += 1
+    current_day = game_state_instance.current_day # Use updated day
+    current_player_region = game_state_instance.get_current_player_region()
+    all_game_regions = game_state_instance.get_all_regions()
+    ai_rivals = game_state_instance.ai_rivals
+
     content_pad.clear()
-    content_pad.addstr(0, 0, f"--- Advancing to Day {current_day+1} ---", curses.color_pair(2) | curses.A_BOLD)
+    content_pad.addstr(0, 0, f"--- Advancing to Day {current_day} ---", curses.color_pair(2) | curses.A_BOLD)
     pad_line = 1
-    # Example: process laundering
-    if getattr(player_inventory, 'pending_laundered_sc_arrival_day', None) is not None and player_inventory.pending_laundered_sc_arrival_day == current_day+1:
-        player_inventory.crypto_wallet['SC'] = player_inventory.crypto_wallet.get('SC', 0.0) + player_inventory.pending_laundered_sc
+
+    # Daily updates for all regions (restock, heat decay, event updates)
+    for region_name, region_obj in all_game_regions.items():
+        region_obj.restock_market()
+        decay_regional_heat(region_obj, 1.0, player_inventory, game_configs) # Pass game_configs
+        decay_player_market_impact(region_obj)
+        decay_rival_market_impact(region_obj, current_day)
+        # update_active_events(region_obj) # This is usually called after event triggering
+
+    # Update crypto prices
+    game_state_instance.update_daily_crypto_prices(game_configs.CRYPTO_VOLATILITY, game_configs.CRYPTO_MIN_PRICE)
+    content_pad.addstr(pad_line,0, "Crypto prices fluctuated.", curses.color_pair(1)); pad_line+=1
+
+    # Process laundering
+    if getattr(player_inventory, 'pending_laundered_sc_arrival_day', None) is not None and player_inventory.pending_laundered_sc_arrival_day == current_day:
+        player_inventory.crypto_wallet[DrugName.STABLE_COIN] = player_inventory.crypto_wallet.get(DrugName.STABLE_COIN, 0.0) + player_inventory.pending_laundered_sc # Assuming SC is StableCoin
         content_pad.addstr(pad_line, 0, f"Laundered {player_inventory.pending_laundered_sc:.4f} SC has arrived!", curses.color_pair(3))
         pad_line += 1
         player_inventory.pending_laundered_sc = 0.0
         player_inventory.pending_laundered_sc_arrival_day = None
-    # TODO: Add event triggers, rival turns, etc. as in your full logic
-    # Debt payment 3 logic (example, should be called from main loop as well):
-    # if current_day+1 == DEBT_PAYMENT_3_DUE_DAY and not debt_payment_3_paid:
-    #     if player_inventory.cash >= DEBT_PAYMENT_3_AMOUNT:
-    #         player_inventory.cash -= DEBT_PAYMENT_3_AMOUNT
-    #         debt_payment_3_paid = True
-    #         log_win.clear()
-    #         log_win.addstr(0, 0, "Final Debt Collector payment made! You are free!", curses.color_pair(3))
-    #         log_win.addstr(1, 0, f"New carrying capacity: {player_inventory.max_capacity}", curses.color_pair(3))
-    #     else:
-    #         log_win.clear()
-    #         log_win.addstr(0, 0, "GAME OVER: You failed to pay the Debt Collector!", curses.color_pair(4))
-    #         log_win.noutrefresh()
-    #         curses.doupdate()
-    #         raise SystemExit
+
+    # Process AI Rival Turns
+    if not is_jailed_turn: # Rivals don't act if player is jailed and time is just passing for player
+        for rival in ai_rivals:
+            process_rival_turn(rival, all_game_regions, current_day, game_configs) # Pass game_configs
+        content_pad.addstr(pad_line,0, "Rivals made their moves...", curses.color_pair(1)); pad_line+=1
+
+    # Trigger Random Market Events (if player not jailed)
+    # Note: trigger_random_market_event itself might print/log, this is a general status
+    if not is_jailed_turn and current_player_region:
+        # This function needs to be adapted or called appropriately.
+        # For now, just a placeholder message.
+        # trigger_random_market_event(current_player_region, current_day, player_inventory, ai_rivals, show_event_message_callback, game_configs_data, add_to_log_callback)
+        content_pad.addstr(pad_line,0, "The streets are buzzing with new events.", curses.color_pair(1)); pad_line+=1
+
+    # Update active events duration for current player region
+    if current_player_region:
+        from ...mechanics.event_manager import update_active_events # Local import to avoid issues if file is run standalone (not typical)
+        update_active_events(current_player_region)
+
+    # Award skill points
+    if current_day % SKILL_POINTS_PER_X_DAYS == 0:
+        player_inventory.skill_points += 1
+        content_pad.addstr(pad_line,0, f"You gained a skill point! (Total: {player_inventory.skill_points})", curses.color_pair(3)); pad_line+=1
+
     content_pad.addstr(pad_line, 0, "Day advanced. Press any key to continue...", curses.color_pair(1))
-    content_pad.noutrefresh(0, 0, 6, 0, 25, 79)
+    content_pad.noutrefresh(0, 0, 6, 0, 25, 79) # TODO: Adjust viewport parameters as needed
     log_win.noutrefresh()
     input_win.clear()
     input_win.refresh()
     input_win.getkey()
-def handle_travel(all_regions: Dict[str, Region], current_region: Region, current_day: int, player_inventory: PlayerInventory, ai_rivals: List[AIRival], crypto_volatility_map: Dict[str,float], crypto_min_prices_map: Dict[str,float]) -> Tuple[Region, int]: # ... (as before)
-    stop_result_day = check_and_trigger_police_stop(current_region, player_inventory, all_regions, current_day, ai_rivals, crypto_volatility_map, crypto_min_prices_map)
-    if stop_result_day is not None: print("Your attempt to travel was interrupted by police!"); return current_region, stop_result_day 
-    print("\n--- Travel ---"); print(f"You are currently in: {current_region.name} (Heat: {current_region.current_heat})")
+    return current_day # Return the new current_day
+
+def handle_travel(game_state_instance: GameState, player_inventory: PlayerInventory, content_pad, log_win, input_win):
+    current_player_region = game_state_instance.get_current_player_region()
+    all_game_regions = game_state_instance.get_all_regions() # Dict[RegionName, Region]
+
+    if not current_player_region:
+        log_win.addstr(0,0,"Error: Current region not set for travel.", curses.color_pair(4)); log_win.noutrefresh(); curses.doupdate(); return
+
+    # Police stop check before travel movement
+    new_day_from_police_stop = check_and_trigger_police_stop(game_state_instance, player_inventory)
+    if new_day_from_police_stop is not None:
+        # game_state_instance.current_day is already updated by handle_police_stop_event -> handle_advance_day
+        log_win.addstr(0,0, "Your travel plans were interrupted!", curses.color_pair(4)); log_win.noutrefresh(); curses.doupdate()
+        return # Day already advanced if jailed
+
+    print("\n--- Travel ---"); print(f"You are currently in: {current_player_region.name.value} (Heat: {current_player_region.current_heat})")
     available_destinations = []; print("Available destinations:"); idx = 1
-    for region_name, region_obj in sorted(all_regions.items()):
-        if region_name != current_region.name: print(f"{idx}. {region_name} (Heat: {region_obj.current_heat})"); available_destinations.append(region_name); idx += 1
-    if not available_destinations: print("There are no other regions to travel to."); return current_region, current_day
+    dest_map = {} # To map choice index back to RegionName
+    for region_name_enum, region_obj in sorted(all_game_regions.items(), key=lambda item: item[0].value):
+        if region_name_enum != current_player_region.name:
+            print(f"{idx}. {region_name_enum.value} (Heat: {region_obj.current_heat})"); dest_map[idx] = region_name_enum; available_destinations.append(region_obj); idx += 1
+    if not available_destinations: print("There are no other regions to travel to."); return
     try:
         choice_input = input(f"Enter destination number (0 to cancel): ")
-        if not choice_input.isdigit(): print("Invalid input. Please enter a number."); return current_region, current_day
+        if not choice_input.isdigit(): print("Invalid input. Please enter a number."); return
         choice = int(choice_input)
-        if choice == 0: print("Travel cancelled."); return current_region, current_day
-        if 1 <= choice <= len(available_destinations):
-            chosen_destination_name = available_destinations[choice-1]; print(f"\nTraveling to {chosen_destination_name}...")
-            new_day_after_travel = handle_advance_day(all_regions, current_day, current_region, ai_rivals, player_inventory, crypto_volatility_map, crypto_min_prices_map, is_jailed_turn=False)
-            new_current_region = all_regions[chosen_destination_name]
-            print(f"You have arrived in {new_current_region.name}.")
-            return new_current_region, new_day_after_travel
-        else: print("Invalid destination number."); return current_region, current_day
-    except ValueError: print("Invalid input. Please enter a number."); return current_region, current_day
-    except Exception as e: print(f"An error occurred during travel: {str(e)}"); return current_region, current_day
+        if choice == 0: print("Travel cancelled."); return
+        if 1 <= choice <= len(dest_map):
+            chosen_destination_name_enum = dest_map[choice]; print(f"\nTraveling to {chosen_destination_name_enum.value}...")
+            game_state_instance.set_current_player_region(chosen_destination_name_enum) # Set new region
+            handle_advance_day(game_state_instance, player_inventory, content_pad, log_win, input_win, is_jailed_turn=False) # Advance day
+            print(f"You have arrived in {game_state_instance.get_current_player_region().name.value}.")
+            # No need to return region/day, game_state_instance is modified directly
+        else: print("Invalid destination number."); return
+    except ValueError: print("Invalid input. Please enter a number."); return
+    except Exception as e: print(f"An error occurred during travel: {str(e)}"); return
 
+def handle_talk_to_informant(game_state_instance: GameState, player_inventory: PlayerInventory, content_pad, log_win, input_win):
+    current_region = game_state_instance.get_current_player_region()
+    ai_rivals = game_state_instance.ai_rivals
+    if not current_region: log_win.addstr(0,0,"Error: Current region not set.", curses.color_pair(4)); log_win.noutrefresh(); curses.doupdate(); return
 
-def handle_talk_to_informant(current_region: Region, all_regions: Dict[str, Region], ai_rivals: List[AIRival], player_inventory: PlayerInventory, content_pad, log_win, input_win):
     import curses
     content_pad.clear()
     pad_line = 0
@@ -521,7 +581,7 @@ def handle_view_upgrades(player_inventory: PlayerInventory, content_pad, log_win
     log_win.noutrefresh()
     curses.doupdate()
 
-def handle_view_skills(player_inventory: PlayerInventory, content_pad, log_win, input_win):
+def handle_view_skills(game_state_instance: GameState, player_inventory: PlayerInventory, content_pad, log_win, input_win): # Added game_state_instance
     import curses
     content_pad.clear()
     pad_line = 0
@@ -529,62 +589,74 @@ def handle_view_skills(player_inventory: PlayerInventory, content_pad, log_win, 
     pad_line += 1
     content_pad.addstr(pad_line, 0, f"Available Skill Points: {player_inventory.skill_points}", curses.color_pair(1))
     pad_line += 1
-    # Market Intuition
-    market_intuition_unlocked = "MARKET_INTUITION" in player_inventory.unlocked_skills
-    content_pad.addstr(pad_line, 0, f"1. Market Intuition (Cost: {SKILL_MARKET_INTUITION_COST} SP) - See drug price trends in market view.", curses.color_pair(1))
-    pad_line += 1
-    if market_intuition_unlocked:
-        content_pad.addstr(pad_line, 2, "(Already Unlocked)", curses.color_pair(3))
-        pad_line += 1
-    # Digital Footprint
-    digital_footprint_unlocked = "DIGITAL_FOOTPRINT" in player_inventory.unlocked_skills
-    content_pad.addstr(pad_line, 0, f"2. Digital Footprint (Cost: {SKILL_DIGITAL_FOOTPRINT_COST} SP) - Reduce heat from crypto deals by {int(DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT*100)}%.", curses.color_pair(1))
-    pad_line += 1
-    if digital_footprint_unlocked:
-        content_pad.addstr(pad_line, 2, "(Already Unlocked)", curses.color_pair(3))
-        pad_line += 1
+
+    # Example: Displaying skills from game_configs.SKILL_DEFINITIONS
+    # This assumes SKILL_DEFINITIONS is structured like: {SkillID.ENUM_MEMBER: {"name": "Skill Name", "cost": X, "description": "..."}}
+    # And player_inventory.unlocked_skills stores the SkillID enum member's .value (string) or the enum member itself.
+
+    skill_options = [] # To map choice index to SkillID
+    idx = 1
+    if hasattr(game_configs, 'SKILL_DEFINITIONS'):
+        for skill_id_enum, skill_def in game_configs.SKILL_DEFINITIONS.items():
+            # Ensure comparison is robust: either store SkillID enums in unlocked_skills or compare by .value
+            is_unlocked = skill_id_enum in player_inventory.unlocked_skills or skill_id_enum.value in player_inventory.unlocked_skills
+
+            skill_name = skill_def.get("name", skill_id_enum.value.replace("_", " ").title())
+            cost = skill_def.get("cost", 99) # Default cost if not defined
+            description = skill_def.get("description", "No description.")
+
+            display_text = f"{idx}. {skill_name} (Cost: {cost} SP) - {description}"
+            if is_unlocked:
+                display_text += " (Already Unlocked)"
+
+            content_pad.addstr(pad_line, 0, display_text, curses.color_pair(1 if not is_unlocked else 3))
+            pad_line +=1
+            if not is_unlocked:
+                skill_options.append(skill_id_enum) # Store enum for action
+            idx +=1
+    else:
+        content_pad.addstr(pad_line, 0, "Skill definitions not found in game_configs.", curses.color_pair(4)); pad_line+=1
+
     content_pad.addstr(pad_line, 0, "0. Back to Main Menu", curses.color_pair(5))
-    content_pad.noutrefresh(0, 0, 6, 0, 25, 79)
+    pad_line +=1
+    content_pad.noutrefresh(0, 0, 6, 0, 25, 79) # TODO: Adjust viewport parameters as needed
+
     log_win.noutrefresh()
     input_win.clear()
-    input_win.addstr(0, 0, "Enter choice: ", curses.color_pair(6))
+    input_win.addstr(0, 0, "Enter choice to unlock (or 0 to go back): ", curses.color_pair(6))
     input_win.refresh()
     curses.echo()
-    choice = input_win.getstr(0, 14, 10).decode().strip()
+    choice_str = input_win.getstr(0, 40, 10).decode().strip() # Increased input length
     curses.noecho()
-    if choice == "1":
-        if market_intuition_unlocked:
-            log_win.clear()
-            log_win.addstr(0, 0, "You have already learned Market Intuition.", curses.color_pair(4))
-        elif player_inventory.skill_points >= SKILL_MARKET_INTUITION_COST:
-            player_inventory.skill_points -= SKILL_MARKET_INTUITION_COST
-            player_inventory.unlocked_skills.append("MARKET_INTUITION")
-            log_win.clear()
-            log_win.addstr(0, 0, "Skill Unlocked: Market Intuition!", curses.color_pair(3))
-        else:
-            log_win.clear()
-            log_win.addstr(0, 0, "Not enough Skill Points to learn Market Intuition.", curses.color_pair(4))
-    elif choice == "2":
-        if digital_footprint_unlocked:
-            log_win.clear()
-            log_win.addstr(0, 0, "You have already learned Digital Footprint.", curses.color_pair(4))
-        elif player_inventory.skill_points >= SKILL_DIGITAL_FOOTPRINT_COST:
-            player_inventory.skill_points -= SKILL_DIGITAL_FOOTPRINT_COST
-            player_inventory.unlocked_skills.append("DIGITAL_FOOTPRINT")
-            log_win.clear()
-            log_win.addstr(0, 0, "Skill Unlocked: Digital Footprint!", curses.color_pair(3))
-        else:
-            log_win.clear()
-            log_win.addstr(0, 0, "Not enough Skill Points to learn Digital Footprint.", curses.color_pair(4))
-    elif choice == "0":
+
+    if not choice_str.isdigit():
+        log_win.clear(); log_win.addstr(0,0, "Invalid input. Please enter a number.", curses.color_pair(4))
+        log_win.noutrefresh(); curses.doupdate(); return
+
+    choice = int(choice_str)
+    if choice == 0:
         return
+
+    if 1 <= choice <= len(skill_options):
+        selected_skill_id_enum = skill_options[choice-1]
+        skill_def = game_configs.SKILL_DEFINITIONS.get(selected_skill_id_enum)
+        cost = skill_def.get("cost", 99)
+        skill_name = skill_def.get("name", selected_skill_id_enum.value)
+
+        if player_inventory.skill_points >= cost:
+            player_inventory.skill_points -= cost
+            # Store the enum value (string) or the enum itself based on how it's checked elsewhere
+            player_inventory.unlocked_skills.append(selected_skill_id_enum.value)
+            log_win.clear(); log_win.addstr(0, 0, f"Skill Unlocked: {skill_name}!", curses.color_pair(3))
+        else:
+            log_win.clear(); log_win.addstr(0, 0, f"Not enough Skill Points for {skill_name}.", curses.color_pair(4))
     else:
-        log_win.clear()
-        log_win.addstr(0, 0, "Invalid choice.", curses.color_pair(4))
+        log_win.clear(); log_win.addstr(0, 0, "Invalid skill choice.", curses.color_pair(4))
+
     log_win.noutrefresh()
     curses.doupdate()
 
-def handle_visit_tech_contact(player_inventory: PlayerInventory, current_crypto_prices_ref: Dict[str, float], current_region: Region, current_day: int):
+def handle_visit_tech_contact(game_state_instance: GameState, player_inventory: PlayerInventory, content_pad, log_win, input_win): # Added curses windows
     # ... (Crypto heat reduction, Laundering option added) ...
     print("\nYou meet your Tech Contact in a secure, undisclosed location. The air hums with servers.")
     while True:
@@ -730,39 +802,48 @@ def handle_visit_tech_contact(player_inventory: PlayerInventory, current_crypto_
         else: print("Invalid choice.")
 
 
-def handle_crypto_shop(player_inventory: PlayerInventory): # ... (as before)
-    if "GHOST_NETWORK_ACCESS" not in player_inventory.unlocked_skills: print("\nAccess Denied. You need Ghost Network Access."); return
+def handle_crypto_shop(game_state_instance: GameState, player_inventory: PlayerInventory, content_pad, log_win, input_win):
+    # Assuming GHOST_NETWORK_ACCESS is stored as string key matching SkillID.value
+    if SkillID.GHOST_NETWORK_ACCESS.value not in player_inventory.unlocked_skills:
+        print("\nAccess Denied. You need Ghost Network Access."); return
+
     print("\n--- Ghost Network Shop ---"); print("Welcome to the exclusive Crypto-Only Shop.")
     while True:
         print("\nShop Items (Prices in DarkCoin - DC):")
-        digital_arsenal_owned = "DIGITAL_ARSENAL" in player_inventory.unlocked_skills; owned_str = "(Owned)" if digital_arsenal_owned else ""
-        print(f"1. Digital Arsenal (Cost: {DIGITAL_ARSENAL_COST_DC:.2f} DC) {owned_str}"); print("   - Provides daily alerts on police crackdowns and high regional heat.")
+        # Assuming DIGITAL_ARSENAL is stored as string key matching SkillID.value
+        digital_arsenal_owned = SkillID.DIGITAL_ARSENAL.value in player_inventory.unlocked_skills
+        owned_str = "(Owned)" if digital_arsenal_owned else ""
+        print(f"1. Digital Arsenal (Cost: {DIGITAL_ARSENAL_COST_DC:.2f} {CryptoCoin.DRUG_COIN.value}) {owned_str}"); print("   - Provides daily alerts on police crackdowns and high regional heat.")
         print("0. Exit Shop"); choice = input("Enter item number to purchase or 0 to exit: ").strip()
+
         if choice == "1":
             if digital_arsenal_owned: print("You already own the Digital Arsenal.")
             else:
-                dc_balance = player_inventory.crypto_wallet.get("DC", 0.0)
+                dc_balance = player_inventory.crypto_wallet.get(CryptoCoin.DRUG_COIN, 0.0)
                 if dc_balance >= DIGITAL_ARSENAL_COST_DC:
-                    player_inventory.crypto_wallet["DC"] -= DIGITAL_ARSENAL_COST_DC
-                    if player_inventory.crypto_wallet["DC"] < 1e-9: del player_inventory.crypto_wallet["DC"]
-                    player_inventory.unlocked_skills.append("DIGITAL_ARSENAL"); print("\nDigital Arsenal acquired! Check daily status for alerts.")
-                else: print(f"Insufficient DarkCoin. You need {DIGITAL_ARSENAL_COST_DC:.2f} DC, have {dc_balance:.2f} DC.")
+                    player_inventory.remove_crypto(CryptoCoin.DRUG_COIN, DIGITAL_ARSENAL_COST_DC)
+                    player_inventory.unlocked_skills.append(SkillID.DIGITAL_ARSENAL.value) # Store .value
+                    print("\nDigital Arsenal acquired! Check daily status for alerts.")
+                else: print(f"Insufficient {CryptoCoin.DRUG_COIN.value}. You need {DIGITAL_ARSENAL_COST_DC:.2f} {CryptoCoin.DRUG_COIN.value}, have {dc_balance:.2f} {CryptoCoin.DRUG_COIN.value}.")
         elif choice == "0": print("Leaving the Ghost Network Shop."); break
         else: print("Invalid choice.")
 
-def handle_meet_corrupt_official(current_region: Region, player_inventory: PlayerInventory, content_pad, log_win, input_win):
+def handle_meet_corrupt_official(game_state_instance: GameState, player_inventory: PlayerInventory, content_pad, log_win, input_win):
+    current_region = game_state_instance.get_current_player_region()
+    if not current_region:
+        log_win.clear(); log_win.addstr(0,0, "Error: Current region not set.", curses.color_pair(4)); log_win.noutrefresh(); curses.doupdate(); return
     import curses
     content_pad.clear()
     pad_line = 0
     content_pad.addstr(pad_line, 0, "--- Meet Corrupt Official ---", curses.color_pair(2) | curses.A_BOLD)
     pad_line += 1
-    content_pad.addstr(pad_line, 0, f"Current Heat in {current_region.name}: {current_region.current_heat}", curses.color_pair(1))
+    content_pad.addstr(pad_line, 0, f"Current Heat in {current_region.name.value}: {current_region.current_heat}", curses.color_pair(1))
     pad_line += 1
     base_cost = CORRUPT_OFFICIAL_BASE_BRIBE_COST + (current_region.current_heat * CORRUPT_OFFICIAL_BRIBE_COST_PER_HEAT_POINT)
     content_pad.addstr(pad_line, 0, f"Bribe Cost: ${base_cost:.2f}", curses.color_pair(1))
     pad_line += 1
     content_pad.addstr(pad_line, 0, "0. Back to Main Menu", curses.color_pair(5))
-    content_pad.noutrefresh(0, 0, 6, 0, 25, 79)
+    content_pad.noutrefresh(0, 0, 6, 0, 25, 79) # TODO: Adjust viewport parameters
     log_win.noutrefresh()
     input_win.clear()
     input_win.addstr(0, 0, "Pay bribe? (yes/0): ", curses.color_pair(6))
@@ -783,16 +864,24 @@ def handle_meet_corrupt_official(current_region: Region, player_inventory: Playe
     current_region.modify_heat(-CORRUPT_OFFICIAL_HEAT_REDUCTION_AMOUNT)
     actual_reduction = original_heat - current_region.current_heat
     log_win.clear()
-    log_win.addstr(0, 0, f"Arrangements made. Heat -{actual_reduction} in {current_region.name}. New heat: {current_region.current_heat}", curses.color_pair(3))
+    log_win.addstr(0, 0, f"Arrangements made. Heat -{actual_reduction} in {current_region.name.value}. New heat: {current_region.current_heat}", curses.color_pair(3))
     log_win.noutrefresh()
     curses.doupdate()
 
-def handle_respond_to_setup(current_region: Region, player_inventory: PlayerInventory, all_regions: Dict[str, Region], current_day: int, ai_rivals: List[AIRival], crypto_volatility_map: Dict[str,float], crypto_min_prices_map: Dict[str,float], content_pad=None, log_win=None, input_win=None) -> int:
+def handle_respond_to_setup(game_state_instance: GameState, player_inventory: PlayerInventory, content_pad=None, log_win=None, input_win=None) -> int:
+    current_region = game_state_instance.get_current_player_region()
+    all_regions = game_state_instance.get_all_regions()
+    current_day = game_state_instance.current_day
+    ai_rivals = game_state_instance.ai_rivals
+    # crypto_volatility_map and crypto_min_prices_map are sourced from game_configs if needed by handle_police_stop_event -> handle_advance_day
+    if not current_region:
+        if log_win: log_win.addstr(0,0,"Error: Current region not set for setup.", curses.color_pair(4)); log_win.noutrefresh(); curses.doupdate()
+        return current_day
     import curses
     setup_event = None
     event_to_remove_idx = -1
     for idx, event_obj in enumerate(current_region.active_market_events):
-        if event_obj.event_type == "THE_SETUP":
+        if event_obj.event_type == EventType.THE_SETUP: # Use Enum
             setup_event = event_obj
             event_to_remove_idx = idx
             break
@@ -807,14 +896,14 @@ def handle_respond_to_setup(current_region: Region, player_inventory: PlayerInve
     if content_pad:
         content_pad.clear()
         pad_line = 0
-        content_pad.addstr(pad_line, 0, f"--- Shady Opportunity in {current_region.name} ---", curses.color_pair(2) | curses.A_BOLD)
+        content_pad.addstr(pad_line, 0, f"--- Shady Opportunity in {current_region.name.value} ---", curses.color_pair(2) | curses.A_BOLD)
         pad_line += 1
-        content_pad.addstr(pad_line, 0, f"Offer: {action_str} {setup_event.deal_quantity} units of {setup_event.deal_quality.name} {setup_event.deal_drug_name}", curses.color_pair(1))
+        content_pad.addstr(pad_line, 0, f"Offer: {action_str} {setup_event.deal_quantity} units of {setup_event.deal_quality.name} {setup_event.deal_drug_name.value}", curses.color_pair(1))
         pad_line += 1
         content_pad.addstr(pad_line, 0, f"       at ${setup_event.deal_price_per_unit:.2f} per unit.", curses.color_pair(1))
         pad_line += 1
         content_pad.addstr(pad_line, 0, "This could be very profitable... or very dangerous.", curses.color_pair(4))
-        content_pad.noutrefresh(0, 0, 6, 0, 25, 79)
+        content_pad.noutrefresh(0, 0, 6, 0, 25, 79) # TODO: Adjust viewport
     if input_win:
         input_win.clear()
         input_win.addstr(0, 0, "Accept this deal? (yes/no): ", curses.color_pair(6))
@@ -855,7 +944,7 @@ def handle_respond_to_setup(current_region: Region, player_inventory: PlayerInve
         if player_inventory.get_quantity(setup_event.deal_drug_name, setup_event.deal_quality) < setup_event.deal_quantity:
             if log_win:
                 log_win.clear()
-                log_win.addstr(0, 0, f"You don't have {setup_event.deal_quantity} units of {setup_event.deal_quality.name} {setup_event.deal_drug_name} to sell. The 'contact' is not amused.", curses.color_pair(4))
+                log_win.addstr(0, 0, f"You don't have {setup_event.deal_quantity} units of {setup_event.deal_quality.name} {setup_event.deal_drug_name.value} to sell. The 'contact' is not amused.", curses.color_pair(4))
                 log_win.noutrefresh()
                 curses.doupdate()
             return current_day
@@ -869,8 +958,9 @@ def handle_respond_to_setup(current_region: Region, player_inventory: PlayerInve
             log_win.addstr(0, 0, "!!! IT'S A STING !!! The 'deal' was a setup by the cops! They move in!", curses.color_pair(4) | curses.A_BOLD)
             log_win.noutrefresh()
             curses.doupdate()
-        new_day_after_sting = handle_police_stop_event(current_region, player_inventory, all_regions, current_day, ai_rivals, crypto_volatility_map, crypto_min_prices_map)
-        return new_day_after_sting if new_day_after_sting is not None else current_day
+        # Pass game_state_instance to handle_police_stop_event
+        new_day_after_sting = handle_police_stop_event(game_state_instance, player_inventory)
+        return new_day_after_sting if new_day_after_sting is not None else game_state_instance.current_day # Use updated day from instance
     # Legit deal
     if setup_event.is_buy_deal:
         total_cost = setup_event.deal_quantity * setup_event.deal_price_per_unit
@@ -879,7 +969,7 @@ def handle_respond_to_setup(current_region: Region, player_inventory: PlayerInve
         apply_player_buy_impact(current_region, setup_event.deal_drug_name, setup_event.deal_quantity)
         if log_win:
             log_win.clear()
-            log_win.addstr(0, 0, f"Successfully bought {setup_event.deal_quantity} units of {setup_event.deal_quality.name} {setup_event.deal_drug_name} for ${total_cost:.2f}.", curses.color_pair(3))
+            log_win.addstr(0, 0, f"Successfully bought {setup_event.deal_quantity} units of {setup_event.deal_quality.name} {setup_event.deal_drug_name.value} for ${total_cost:.2f}.", curses.color_pair(3))
             log_win.noutrefresh()
             curses.doupdate()
     else:
@@ -889,18 +979,20 @@ def handle_respond_to_setup(current_region: Region, player_inventory: PlayerInve
         apply_player_sell_impact(current_region, setup_event.deal_drug_name, setup_event.deal_quantity)
         if log_win:
             log_win.clear()
-            log_win.addstr(0, 0, f"Successfully sold {setup_event.deal_quantity} units of {setup_event.deal_quality.name} {setup_event.deal_drug_name} for ${total_revenue:.2f}.", curses.color_pair(3))
+            log_win.addstr(0, 0, f"Successfully sold {setup_event.deal_quantity} units of {setup_event.deal_quality.name} {setup_event.deal_drug_name.value} for ${total_revenue:.2f}.", curses.color_pair(3))
             log_win.noutrefresh()
             curses.doupdate()
     heat_from_deal = random.randint(15, 40)
     current_region.modify_heat(heat_from_deal)
     if log_win:
-        log_win.addstr(1, 0, f"A deal this size doesn't go unnoticed... (Heat +{heat_from_deal} in {current_region.name})", curses.color_pair(4))
+        log_win.addstr(1, 0, f"A deal this size doesn't go unnoticed... (Heat +{heat_from_deal} in {current_region.name.value})", curses.color_pair(4))
         log_win.noutrefresh()
         curses.doupdate()
-    return current_day
+    return game_state_instance.current_day # Return the current day from the instance
 
-def handle_view_market(region: Region, player_inventory: PlayerInventory, content_pad, log_win, input_win):
+def handle_view_market(game_state_instance: GameState, player_inventory: PlayerInventory, content_pad, log_win, input_win):
+    region = game_state_instance.get_current_player_region()
+    if not region: log_win.addstr(0,0,"Error: Current region not set.", curses.color_pair(4)); log_win.noutrefresh(); curses.doupdate(); return
     import curses # Make sure curses is imported if not already at the top of the file
     # (Assuming print_market_header is available from ui_helpers and is curses-aware)
     # from .ui_helpers import print_market_header # If not already imported
@@ -923,7 +1015,7 @@ def handle_view_market(region: Region, player_inventory: PlayerInventory, conten
     pad_current_line = 0 # Tracks the current line number on the pad itself
 
     # Draw title
-    title_str = f"--- Market in {region.name} (Regional Heat: {region.current_heat}) ---"
+    title_str = f"--- Market in {region.name.value} (Regional Heat: {region.current_heat}) ---"
     content_pad.addstr(pad_current_line, 0, title_str, curses.color_pair(2) | curses.A_BOLD)
     pad_current_line += 1
 
@@ -933,7 +1025,7 @@ def handle_view_market(region: Region, player_inventory: PlayerInventory, conten
     # and we pass pad_current_line to it, or it draws at its current cursor.
     # To be safe, let's manage pad_current_line explicitly here.
     temp_header_pad = content_pad.derwin(2, content_viewport_width, pad_current_line, 0)
-    print_market_header(temp_header_pad, region.name, show_trend=show_trend_icons)
+    print_market_header(temp_header_pad, region.name.value, show_trend=show_trend_icons) # Pass region name string
     temp_header_pad.noutrefresh() # Refresh the sub-pad if it was used directly
     # Or, if print_market_header writes directly to content_pad starting at pad_current_line:
     # print_market_header(content_pad.derwin(pad_current_line,0), region.name, show_trend=show_trend_icons) # this is complex
@@ -953,7 +1045,7 @@ def handle_view_market(region: Region, player_inventory: PlayerInventory, conten
     content_pad.addstr(pad_current_line, 0, "-" * len(market_header_text), curses.color_pair(2))
     pad_current_line += 1
 
-    sorted_drug_names = sorted(region.drug_market_data.keys())
+    sorted_drug_names = sorted(region.drug_market_data.keys(), key=lambda d_enum: d_enum.value) # Sort by enum value
     market_data_lines_for_pad = [] # Store (text, color_pair) tuples
 
     if not sorted_drug_names:
@@ -980,7 +1072,7 @@ def handle_view_market(region: Region, player_inventory: PlayerInventory, conten
                     for event in region.active_market_events:
                         if event.target_drug_name == drug_name and event.target_quality == quality:
                             event_active_marker = "*"
-                            if event.event_type == "SUPPLY_CHAIN_DISRUPTION": is_disrupted = True
+                            if event.event_type == EventType.SUPPLY_DISRUPTION: is_disrupted = True # Use Enum
                             break
                     actual_buy_price = current_buy_price if not (is_disrupted and stock == 0) else 0.0
                     buy_price_str = f"${actual_buy_price:<9.2f}" if actual_buy_price > 0 or (stock == 0 and event_active_marker == "*" and not is_disrupted) else "---".ljust(10)
@@ -988,17 +1080,17 @@ def handle_view_market(region: Region, player_inventory: PlayerInventory, conten
                     stock_display = f"{stock:<10}" if not is_disrupted else (f"{str(stock)} (LOW)".ljust(10) if stock > 0 else f"{stock} (NONE)".ljust(10))
                     drug_col_width = 9 if show_trend_icons else 10
                     quality_col_width = 9 if show_trend_icons else 10
-                    line_text = f"{event_active_marker}{trend_icon:<2}{drug_name:<{drug_col_width}} {quality.name:<{quality_col_width}} {buy_price_str} {sell_price_str} {stock_display}"
+                    line_text = f"{event_active_marker}{trend_icon:<2}{drug_name.value:<{drug_col_width}} {quality.name:<{quality_col_width}} {buy_price_str} {sell_price_str} {stock_display}"
                     color_to_use = curses.color_pair(1)
                     if event_active_marker == "*": color_to_use = curses.color_pair(3) | curses.A_BOLD
                     elif is_disrupted: color_to_use = curses.color_pair(4)
                     market_data_lines_for_pad.append((line_text, color_to_use))
             else:
-                market_data_lines_for_pad.append((f"  {drug_name:<10} - No qualities listed.", curses.color_pair(4)))
+                market_data_lines_for_pad.append((f"  {drug_name.value:<10} - No qualities listed.", curses.color_pair(4)))
 
     # Draw collected market data lines to the pad
     for text, color_attr in market_data_lines_for_pad:
-        content_pad.addstr(pad_current_line, 0, text, color_attr)
+        content_pad.addstr(pad_current_line, 0, text[:content_viewport_width-1], color_attr) # Truncate
         pad_current_line += 1
 
     # Active events section
@@ -1008,10 +1100,15 @@ def handle_view_market(region: Region, player_inventory: PlayerInventory, conten
         content_pad.addstr(pad_current_line, 0, "Active Market Events:", curses.color_pair(2) | curses.A_BOLD)
         pad_current_line += 1
         for event in region.active_market_events:
-            target_info = f"{event.target_quality.name} {event.target_drug_name}" if event.target_drug_name and event.target_quality else "Regional"
-            if event.event_type == "THE_SETUP" and event.deal_drug_name and event.deal_quality:
-                target_info = f"Offer: {'Buy' if event.is_buy_deal else 'Sell'} {event.deal_quantity} {event.deal_quality.name} {event.deal_drug_name} @ ${event.deal_price_per_unit:.2f}"
-            event_line = f"  - {event.event_type.replace('_',' ').title()}: {target_info} (Days left: {event.duration_remaining_days})"
+            target_drug_display = event.target_drug_name.value if event.target_drug_name else "N/A"
+            target_quality_display = event.target_quality.name if event.target_quality else "N/A"
+            target_info = f"{target_quality_display} {target_drug_display}" if event.target_drug_name and event.target_quality else "Regional"
+
+            if event.event_type == EventType.THE_SETUP and event.deal_drug_name and event.deal_quality:
+                deal_drug_display = event.deal_drug_name.value if event.deal_drug_name else "N/A"
+                target_info = f"Offer: {'Buy' if event.is_buy_deal else 'Sell'} {event.deal_quantity} {event.deal_quality.name} {deal_drug_display} @ ${event.deal_price_per_unit:.2f}"
+
+            event_line = f"  - {event.event_type.value.replace('_',' ').title()}: {target_info} (Days left: {event.duration_remaining_days})"
             content_pad.addstr(pad_current_line, 0, event_line, curses.color_pair(5))
             pad_current_line += 1
 

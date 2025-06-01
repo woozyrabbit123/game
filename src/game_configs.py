@@ -49,6 +49,61 @@ DEBT_PAYMENT_2_DUE_DAY: int = 30
 DEBT_PAYMENT_3_AMOUNT: float = 20000.0
 DEBT_PAYMENT_3_DUE_DAY: int = 45
 
+# Specific Event Parameter Configurations
+EVENT_CONFIGS = {
+    "DEMAND_SPIKE": {
+        "SELL_PRICE_MULT_MIN": 1.2,
+        "SELL_PRICE_MULT_MAX": 1.8,
+        "BUY_PRICE_MULT_MIN": 1.0,
+        "BUY_PRICE_MULT_MAX": 1.3,
+        "DURATION_DAYS_MIN": 2,
+        "DURATION_DAYS_MAX": 4,
+    },
+    "POLICE_CRACKDOWN": {
+        "DURATION_DAYS_MIN": 2,
+        "DURATION_DAYS_MAX": 4,
+        "HEAT_INCREASE_MIN": 10,
+        "HEAT_INCREASE_MAX": 30,
+    },
+    "CHEAP_STASH": {
+        "BUY_PRICE_MULT_MIN": 0.6,
+        "BUY_PRICE_MULT_MAX": 0.8,
+        "DURATION_DAYS_MIN": 1,
+        "DURATION_DAYS_MAX": 2,
+        "TEMP_STOCK_INCREASE_MIN": 50,
+        "TEMP_STOCK_INCREASE_MAX": 150,
+    },
+    "THE_SETUP": {
+        "DEAL_QUANTITY_MIN": 20,
+        "DEAL_QUANTITY_MAX": 100,
+        "BUY_DEAL_PRICE_MULT_MIN": 0.2,
+        "BUY_DEAL_PRICE_MULT_MAX": 0.4,
+        "SELL_DEAL_PRICE_MULT_MIN": 2.0,
+        "SELL_DEAL_PRICE_MULT_MAX": 3.5,
+        "DURATION_DAYS": 1,
+    },
+    "RIVAL_BUSTED": {
+        "DURATION_DAYS_MIN": 5,
+        "DURATION_DAYS_MAX": 10,
+    },
+    "SUPPLY_DISRUPTION": { # Added
+        "DURATION_DAYS": 2, # From SUPPLY_DISRUPTION_EVENT_DURATION_DAYS
+        "STOCK_REDUCTION_PERCENT": 0.75, # From SUPPLY_DISRUPTION_STOCK_REDUCTION_PERCENT
+        "MIN_STOCK_AFTER_EVENT": 1 # From MIN_STOCK_AFTER_DISRUPTION
+    },
+    "DRUG_MARKET_CRASH": { # Added
+        "DURATION_DAYS": 2, # From DRUG_CRASH_EVENT_DURATION_DAYS
+        "PRICE_REDUCTION_PERCENT": 0.60, # From DRUG_CRASH_PRICE_REDUCTION_PERCENT
+        "MINIMUM_PRICE_AFTER_CRASH": 1.0 # From MINIMUM_DRUG_PRICE
+    },
+    "BLACK_MARKET_OPPORTUNITY": { # Added
+        "MIN_QUANTITY": 20, # From BLACK_MARKET_MIN_QUANTITY
+        "MAX_QUANTITY": 50, # From BLACK_MARKET_MAX_QUANTITY
+        "PRICE_REDUCTION_PERCENT": 0.50, # From BLACK_MARKET_PRICE_REDUCTION_PERCENT
+        "DURATION_DAYS": 1 # From BLACK_MARKET_EVENT_DURATION_DAYS
+    }
+}
+
 # Event Chances
 EVENT_TRIGGER_CHANCE: float = 0.20
 MUGGING_EVENT_CHANCE: float = 0.10
@@ -160,19 +215,22 @@ CRYPTO_PRICES_INITIAL: Dict[CryptoCoin, float] = {
     CryptoCoin.BITCOIN: 100.0,
     CryptoCoin.ETHEREUM: 50.0,
     CryptoCoin.MONERO: 75.0,
-    CryptoCoin.ZCASH: 25.0
+    CryptoCoin.ZCASH: 25.0,
+    CryptoCoin.DRUG_COIN: 10.0  # Added DRUG_COIN
 }
 
 CRYPTO_VOLATILITY: Dict[CryptoCoin, float] = {
     CryptoCoin.BITCOIN: 0.05,
     CryptoCoin.ETHEREUM: 0.08,
     CryptoCoin.MONERO: 0.10,
-    CryptoCoin.ZCASH: 0.15
+    CryptoCoin.ZCASH: 0.15,
+    CryptoCoin.DRUG_COIN: 0.20  # Added DRUG_COIN
 }
 
 CRYPTO_MIN_PRICE: Dict[CryptoCoin, float] = {
     CryptoCoin.BITCOIN: 20.0,
     CryptoCoin.ETHEREUM: 10.0,
     CryptoCoin.MONERO: 15.0,
-    CryptoCoin.ZCASH: 5.0
+    CryptoCoin.ZCASH: 5.0,
+    CryptoCoin.DRUG_COIN: 1.0   # Added DRUG_COIN
 }
