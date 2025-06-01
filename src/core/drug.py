@@ -10,10 +10,19 @@ class Drug:
         self.quality = quality if tier > 1 else DrugQuality.STANDARD
 
     def get_quality_multiplier(self, price_type: str) -> float:
-        if self.quality == DrugQuality.CUT:
-            return 0.7 if price_type == "buy" else 0.75
-        elif self.quality == DrugQuality.STANDARD:
-            return 1.0
-        elif self.quality == DrugQuality.PURE:
-            return 1.5 if price_type == "buy" else 1.6
+        if price_type == "buy":
+            if self.quality == DrugQuality.CUT:
+                return 0.7
+            elif self.quality == DrugQuality.STANDARD:
+                return 1.0
+            elif self.quality == DrugQuality.PURE:
+                return 1.5
+        elif price_type == "sell":
+            if self.quality == DrugQuality.CUT:
+                return 0.75
+            elif self.quality == DrugQuality.STANDARD:
+                return 1.0
+            elif self.quality == DrugQuality.PURE:
+                return 1.6
+        # Default for unknown price_type or if quality somehow not in enum (though last line handles it)
         return 1.0

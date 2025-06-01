@@ -64,6 +64,12 @@ def draw_travel_view(
     pygame.draw.rect(surface, YALE_BLUE, dest_header_rect, 1)
     draw_text(surface, "AVAILABLE DESTINATIONS", SCREEN_WIDTH // 2, 215, 
               font=FONT_MEDIUM, color=PLATINUM, center_aligned=True)
+
+    # Display travel cost
+    from .. import game_configs # Ensure game_configs is imported
+    travel_cost_text = f"(Travel Cost: ${game_configs.TRAVEL_COST_CASH})"
+    draw_text(surface, travel_cost_text, SCREEN_WIDTH // 2, 245, # Adjust Y position as needed
+              font=FONT_MEDIUM, color=GOLDEN_YELLOW, center_aligned=True)
     
     mouse_pos = pygame.mouse.get_pos()
     for button in travel_buttons: # These are pre-configured in setup_buttons

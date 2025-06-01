@@ -1,5 +1,5 @@
 from typing import Dict, List, Optional, Set
-from .enums import DrugQuality, DrugName, CryptoCoin
+from .enums import DrugQuality, DrugName, CryptoCoin, SkillID
 
 class PlayerInventory:
     def __init__(self, max_capacity: int = None, starting_cash: float = None):
@@ -36,6 +36,13 @@ class PlayerInventory:
         self.debt_payment_2_paid: bool = False
         self.debt_payment_3_paid: bool = False
 
+    def unlock_skill(self, skill_id_str: str, cost: int) -> bool:
+        """Attempts to unlock a skill for the player."""
+        if self.skill_points >= cost:
+            self.skill_points -= cost
+            self.unlocked_skills.add(skill_id_str) # Add string skill ID
+            return True
+        return False
 
     def _recalculate_current_load(self):
         total = 0

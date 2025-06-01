@@ -5,6 +5,7 @@ Split from app.py for modularity.
 from .ui_components import Button
 from ..core.player_inventory import PlayerInventory
 from ..core.region import Region
+from ..core.enums import SkillID # Added for skill buttons
 from typing import Any
 
 # All setup_buttons and related UI setup functions will be moved here from app.py
@@ -131,6 +132,47 @@ def setup_buttons(game_state: Any, player_inv: PlayerInventory, game_configs: An
 
     elif state.current_view == "skills":
         state.skills_view_buttons.append(Button(SCREEN_WIDTH - button_width - 20, SCREEN_HEIGHT - button_height - 20, button_width, button_height, "Back", actions.action_open_main_menu, font=FONT_SMALL))
+
+        skill_button_width = 150
+        skill_button_height = 30
+        # Positions need to align with how draw_skills_view lays out text
+        skill_y_start_buttons = 240  # Matches text y in draw_skills_view
+        skill_item_v_spacing = 80 # Matches text v_spacing in draw_skills_view
+        button_x_pos = SCREEN_WIDTH - skill_button_width - 70 # Position to the right
+
+        if hasattr(game_configs, 'SKILL_DEFINITIONS'):
+            for idx, (skill_id_enum, skill_def) in enumerate(game_configs.SKILL_DEFINITIONS.items()):
+                # skill_id_enum is the Enum member, e.g., SkillID.COMPARTMENTALIZATION
+                # skill_def is the dictionary from SKILL_DEFINITIONS
+
+                skill_id_str = skill_id_enum.value # Get the string value, e.g., "COMPARTMENTALIZATION"
+
+                current_skill_button_y = skill_y_start_buttons + (idx * skill_item_v_spacing) - (skill_button_height // 4) # Adjust Y to align with skill name
+
+                if skill_id_str not in player_inv.unlocked_skills:
+                    can_unlock = player_inv.skill_points >= skill_def['cost']
+                    unlock_action = functools.partial(
+                        actions.action_unlock_skill,
+                        player_inv,               # player_inv_cache
+                        skill_id_str,             # skill_id_str
+                        skill_def['name'],        # skill_name_str
+                        skill_def['cost'],        # skill_cost
+                        game_state,               # game_state_cache
+                        game_configs              # game_configs_data_cache
+                    )
+                    state.skills_view_buttons.append(
+                        Button(
+                            button_x_pos,
+                            current_skill_button_y,
+                            skill_button_width,
+                            skill_button_height,
+                            f"Unlock ({skill_def['cost']} SP)",
+                            unlock_action,
+                            is_enabled=can_unlock,
+                            font=FONT_XSMALL # Smaller font for these buttons
+                        )
+                    )
+                # else: No button if already unlocked, view shows "Unlocked"
 
     elif state.current_view == "upgrades":
         state.upgrades_view_buttons.append(Button(SCREEN_WIDTH - button_width - 20, SCREEN_HEIGHT - button_height - 20, button_width, button_height, "Back", actions.action_open_main_menu, font=FONT_SMALL))
