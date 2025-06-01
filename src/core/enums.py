@@ -18,6 +18,10 @@ class RegionName(Enum):
     INDUSTRIAL = "Industrial District"
     DOCKS = "Docks"
     COMMERCIAL = "Commercial District"
+    UNIVERSITY_HILLS = "University Hills"
+    RIVERSIDE = "Riverside"
+    AIRPORT_DISTRICT = "Airport District"
+    OLD_TOWN = "Old Town"
 
 class CryptoCoin(Enum):
     BITCOIN = "Bitcoin"

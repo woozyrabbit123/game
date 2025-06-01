@@ -129,6 +129,27 @@ def initialize_regions():
         DrugQuality.CUT: random.randint(15,40)
     })
     all_regions[RegionName.COMMERCIAL] = commercial
+
+    university_hills = Region(RegionName.UNIVERSITY_HILLS.value)
+    university_hills.initialize_drug_market("Weed", 70, 110, 1, {DrugQuality.STANDARD: random.randint(50,100)})
+    university_hills.initialize_drug_market("Pills", 120, 180, 2, {DrugQuality.STANDARD: random.randint(30,60), DrugQuality.PURE: random.randint(10,20)})
+    university_hills.initialize_drug_market("Speed", 130, 190, 2, {DrugQuality.CUT: random.randint(40,80), DrugQuality.STANDARD: random.randint(20,50)})
+    all_regions[RegionName.UNIVERSITY_HILLS] = university_hills
+
+    riverside = Region(RegionName.RIVERSIDE.value)
+    riverside.initialize_drug_market("Weed", 40, 65, 1, {DrugQuality.STANDARD: random.randint(120,250)})
+    riverside.initialize_drug_market("Heroin", 550, 800, 3, {DrugQuality.STANDARD: random.randint(10,25), DrugQuality.CUT: random.randint(15,35)})
+    all_regions[RegionName.RIVERSIDE] = riverside
+
+    airport_district = Region(RegionName.AIRPORT_DISTRICT.value)
+    airport_district.initialize_drug_market("Coke", 1100, 1600, 3, {DrugQuality.PURE: random.randint(15,30), DrugQuality.STANDARD: random.randint(20,40)})
+    airport_district.initialize_drug_market("Speed", 150, 220, 2, {DrugQuality.PURE: random.randint(20,40), DrugQuality.STANDARD: random.randint(30,60)})
+    all_regions[RegionName.AIRPORT_DISTRICT] = airport_district
+
+    old_town = Region(RegionName.OLD_TOWN.value)
+    old_town.initialize_drug_market("Pills", 90, 140, 2, {DrugQuality.STANDARD: random.randint(50,100), DrugQuality.CUT: random.randint(70,130)})
+    old_town.initialize_drug_market("Heroin", 620, 920, 3, {DrugQuality.CUT: random.randint(20,50), DrugQuality.STANDARD: random.randint(10,30), DrugQuality.PURE: random.randint(5,10)})
+    all_regions[RegionName.OLD_TOWN] = old_town
     
     # Initialize all region markets
     for region in all_regions.values():

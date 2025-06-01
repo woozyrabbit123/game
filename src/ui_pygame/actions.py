@@ -5,12 +5,16 @@ Split from app.py for modularity.
 import functools
 import random
 from typing import Any
+from .. import game_configs
 from .ui_hud import show_event_message as show_event_message_external, add_message_to_log
 from .ui_components import Button
 from ..core.enums import DrugName, DrugQuality, RegionName, CryptoCoin
 from ..core.player_inventory import PlayerInventory
 from ..core.region import Region
 from ..mechanics import market_impact, event_manager
+from ..core.enums import SkillID # Added for skill logic
+from .. import game_configs as game_configs_module # For direct access to constants like COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT
+import math # Added for math.ceil
 
 # All action functions will be moved here from app.py
 # This file will be filled in the next step.
@@ -61,7 +65,7 @@ def action_confirm_transaction(player_inv, market_region, game_state):
     from . import state
     from .setup_ui import setup_buttons
     from .ui_hud import show_event_message as show_event_message_external
-    from . import market_impact
+    # from . import market_impact # Removed: market_impact is imported at module level from ..mechanics
     if not state.quantity_input_string.isdigit() or int(state.quantity_input_string) <= 0:
         show_event_message_external("Error: Invalid quantity.")
         state.quantity_input_string = ""
@@ -100,8 +104,23 @@ def action_confirm_transaction(player_inv, market_region, game_state):
             drug_tier = market_region.drug_market_data[drug_enum].get('tier', 1)
             heat_per_unit = state.game_configs_data_cache.HEAT_FROM_SELLING_DRUG_TIER.get(drug_tier, 1)
             total_heat = heat_per_unit * quantity
+
+            if SkillID.COMPARTMENTALIZATION.value in player_inv.unlocked_skills:
+                reduction = game_configs_module.COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT # Using direct import
+                original_heat = total_heat
+                total_heat *= (1 - reduction)
+                total_heat = int(math.ceil(total_heat))
+                add_message_to_log(f"Compartmentalization skill reduced heat from {original_heat} to {total_heat}.")
+
             market_region.modify_heat(total_heat)
-            market_impact.apply_player_sell_impact(market_region, drug_enum.value, quantity)
+            # Corrected call: added player_inv, passed drug_enum directly, and now game_configs_data_cache
+            market_impact.apply_player_sell_impact(
+                player_inv,
+                market_region,
+                drug_enum,
+                quantity,
+                state.game_configs_data_cache # Pass the game_configs
+            )
             show_event_message_external(f"Sold {quantity} {drug_enum.value}. Heat +{total_heat} in {market_region.name.value}.")
             state.current_view = "market"
     state.quantity_input_string = ""
@@ -210,6 +229,21 @@ def action_initiate_buy(drug_enum, quality_enum, buy_price, market_stock):
     state.active_prompt_message = None
     state.prompt_message_timer = 0
 
+def action_unlock_skill(player_inv: PlayerInventory, skill_id_str: str, skill_name_str: str, skill_cost: int, game_state_cache: Any, game_configs_data_cache: Any):
+    """Action to attempt unlocking a skill."""
+    from . import state # For setup_buttons and show_event_message
+    from .setup_ui import setup_buttons
+
+    if player_inv.unlock_skill(skill_id_str, skill_cost):
+        show_event_message_external(f"Skill Unlocked: {skill_name_str}!")
+        add_message_to_log(f"Player unlocked skill: {skill_name_str} (ID: {skill_id_str}) for {skill_cost} SP. SP remaining: {player_inv.skill_points}")
+    else:
+        show_event_message_external("Not enough skill points.")
+        add_message_to_log(f"Player failed to unlock skill: {skill_name_str} (ID: {skill_id_str}). Needed {skill_cost} SP, has {player_inv.skill_points}")
+
+    # Refresh buttons as skill availability might change button states
+    setup_buttons(game_state_cache, player_inv, game_configs_data_cache, game_state_cache.current_player_region)
+
 def action_initiate_sell(drug_enum, quality_enum, sell_price, player_has_stock):
     """
     Initiate a sell transaction for the given drug and quality.
@@ -248,7 +282,7 @@ def action_travel_to_region(dest_region_obj, player_inv, game_state):
     from src.mechanics.event_manager import check_and_trigger_police_stop, update_active_events
     from src.game_state import update_daily_crypto_prices
     from src.game_configs import CRYPTO_VOLATILITY, CRYPTO_MIN_PRICE
-    travel_cost = 50
+    travel_cost = state.game_configs_data_cache.TRAVEL_COST_CASH
     prev_region = game_state.current_player_region
     if player_inv.cash < travel_cost:
         show_event_message_external("Not enough cash to travel.")
@@ -272,6 +306,30 @@ def action_travel_to_region(dest_region_obj, player_inv, game_state):
         player_inv.pending_laundered_sc_arrival_day = None
     # Police stop event (risk based on region heat)
     police_event_triggered = check_and_trigger_police_stop(game_state.current_player_region, player_inv, game_state)
+
+    # Daily Heat Decay for Player (applied after police stop check for the day, before new screen setup)
+    if hasattr(player_inv, 'heat'): # Check if player_inv object has heat attribute
+        base_decay = game_configs_module.BASE_DAILY_HEAT_DECAY
+        effective_decay = base_decay
+
+        if SkillID.GHOST_PROTOCOL.value in player_inv.unlocked_skills:
+            boost_percent = game_configs_module.GHOST_PROTOCOL_DECAY_BOOST_PERCENT
+            additional_decay = math.floor(base_decay * boost_percent) #math.floor ensures integer decay
+            effective_decay += additional_decay
+
+        if player_inv.heat > 0:
+            original_player_heat = player_inv.heat
+            player_inv.heat = max(0, player_inv.heat - effective_decay)
+            if player_inv.heat < original_player_heat: # Log only if heat actually changed
+                add_message_to_log(
+                    f"Player daily heat decay: {effective_decay} (Base: {base_decay}). "
+                    f"Player heat reduced from {original_player_heat} to {player_inv.heat}."
+                )
+        elif effective_decay > 0 : # If heat was already 0, but decay mechanism is active
+                add_message_to_log(
+                f"Player daily heat decay ran ({effective_decay} potential). Player heat remains 0."
+            )
+
     if police_event_triggered:
         state.current_view = "blocking_event_popup"
         show_event_message_external("Police stop! Event triggered.")

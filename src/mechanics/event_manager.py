@@ -1,4 +1,5 @@
 import random
+import math # For math.floor
 from typing import List, Optional, Callable, Any, Union
 from enum import Enum # Added Enum for isinstance checks
 
@@ -374,11 +375,42 @@ def trigger_random_market_event(
 ) -> Optional[str]:
 
     # Independent chance for Black Market event
-    if random.random() < game_configs_data.BLACK_MARKET_CHANCE:
-        return _create_and_add_black_market_event(region, current_day, player_inventory, show_event_message_callback)
+    # We want this to potentially happen even if a black market event also occurs,
+    # so we don't return immediately after black market if we add mugging.
+    # Let's store the result of black market and then check mugging.
 
-    # Standard market events
+    black_market_message = None
+    if random.random() < game_configs_data.BLACK_MARKET_CHANCE:
+        black_market_message = _create_and_add_black_market_event(region, current_day, player_inventory, show_event_message_callback)
+
+    # Independent chance for Mugging Event
+    mugging_occurred = False
+    if random.random() < game_configs_data.MUGGING_EVENT_CHANCE:
+        # Pass necessary arguments. Assuming player_inventory.heat is available if needed by future mugging logic.
+        # For now, _handle_mugging_event doesn't use player_inventory.heat
+        mugging_occurred = _handle_mugging_event(player_inventory, region, game_configs_data, show_event_message_callback, add_to_log_callback)
+
+    # Independent chance for Forced Fire Sale Event
+    forced_sale_occurred = False
+    if random.random() < game_configs_data.FORCED_FIRE_SALE_CHANCE:
+        forced_sale_occurred = _handle_forced_fire_sale_event(
+            player_inventory,
+            region,
+            game_configs_data,
+            show_event_message_callback,
+            add_to_log_callback
+        )
+        # This event also messages independently. No specific return value needed here
+        # unless it should override other messages, which is not the case for now.
+
+    # The black_market_message return should be the last thing before falling through to standard market events or default return
+    if black_market_message:
+        return black_market_message
+
+    # Standard market events (original logic)
     if random.random() < game_configs_data.EVENT_TRIGGER_CHANCE:
+        # ... (weighted event selection and execution logic) ...
+        # This block should remain the same as in the previous step
         event_options_map = {
             EventType.DEMAND_SPIKE: (_create_and_add_demand_spike, 3),
             EventType.SUPPLY_DISRUPTION: (_create_and_add_supply_disruption, 2),
@@ -407,7 +439,10 @@ def trigger_random_market_event(
         if chosen_event_type_enum == EventType.DEMAND_SPIKE:
             creation_func(region, current_day)
         elif chosen_event_type_enum == EventType.SUPPLY_DISRUPTION:
-            creation_func(region, current_day, player_inventory.heat, game_configs_data, show_event_message_callback, add_to_log_callback)
+            # Assuming player_inventory has 'heat' attribute. If not, this needs adjustment or mock.
+            # For now, let's assume player_inventory.heat exists.
+            player_heat = getattr(player_inventory, 'heat', 0) # Safely get heat
+            creation_func(region, current_day, player_heat, game_configs_data, show_event_message_callback, add_to_log_callback)
         elif chosen_event_type_enum == EventType.POLICE_CRACKDOWN:
             creation_func(region, current_day)
         elif chosen_event_type_enum == EventType.CHEAP_STASH:
@@ -478,3 +513,129 @@ def update_active_events(region: Region):
             print(log_base + message_map.get(current_event_type, default_message))
 
     region.active_market_events = new_active_events
+
+
+# Placeholder for missing function - TODO: Implement actual police stop logic
+def check_and_trigger_police_stop(region: 'Region', player_inventory: 'PlayerInventory', game_state: 'Any') -> bool:
+    """
+    Placeholder for police stop logic.
+    Currently does nothing and always returns False (no event triggered).
+    """
+    # from ..core.region import Region # Avoid circular if Region is already imported
+    # from ..core.player_inventory import PlayerInventory # Avoid circular
+    # print(f"DEBUG: check_and_trigger_police_stop called for region {region.name if hasattr(region, 'name') else 'Unknown'}, player has {player_inventory.cash if hasattr(player_inventory, 'cash') else 'Unknown'} cash.")
+    # Actual logic for determining if a police stop occurs would go here.
+    # This would involve checking region heat, player status, game configs, etc.
+    return False # Indicates no police stop event was triggered
+
+
+def _handle_mugging_event(
+    player_inventory: PlayerInventory,
+    region: Region,
+    game_configs_data: Any, # To access MUGGING_EVENT_CHANCE if needed here, or just rely on the caller
+    show_event_message_callback: Callable[[str], None],
+    add_to_log_callback: Callable[[str], None] # For logging
+) -> bool:
+    """
+    Handles the logic for a mugging event.
+    Player loses a percentage of their cash.
+    """
+    if player_inventory.cash <= 0: # Can't mug someone with no cash
+        return False
+
+    # Define percentage of cash lost (e.g., 10-25%)
+    percentage_lost = random.uniform(0.10, 0.25)
+    cash_lost = math.floor(player_inventory.cash * percentage_lost)
+
+    if cash_lost <= 0: # If percentage is too small on low cash amounts
+        return False
+
+    player_inventory.cash -= cash_lost
+
+    region_name_str = region.name.value if isinstance(region.name, Enum) else region.name
+    message = f"Street Danger! You were mugged in {region_name_str} and lost ${cash_lost:,.0f}!"
+
+    show_event_message_callback(message)
+    add_to_log_callback(f"Mugging Event: Player lost ${cash_lost:,.0f} in {region_name_str}. Player cash now: ${player_inventory.cash:,.0f}")
+
+    # Create a short-lived event for event log if desired, or just rely on text log
+    # For now, no MarketEvent object is created for mugging as it's immediate.
+    return True
+
+
+def _handle_forced_fire_sale_event(
+    player_inventory: PlayerInventory,
+    region: Region,
+    game_configs_data: Any,
+    show_event_message_callback: Callable[[str], None],
+    add_to_log_callback: Callable[[str], None]
+) -> bool:
+    """
+    Handles the logic for a Forced Fire Sale event.
+    Player is forced to sell a portion of a random drug stash at a penalty.
+    """
+    eligible_drugs = []
+    # player_inventory.items is Dict[DrugName, Dict[DrugQuality, int]]
+    for drug_name_enum, qualities in player_inventory.items.items(): # Changed player_inventory.drugs to player_inventory.items
+        for quality_enum, quantity in qualities.items():
+            if quantity > 0:
+                eligible_drugs.append({'name': drug_name_enum, 'quality': quality_enum, 'quantity': quantity})
+
+    if not eligible_drugs:
+        add_to_log_callback("ForcedFireSale Event: Player has no drugs to sell. Event fizzled.")
+        return False
+
+    selected_drug_info = random.choice(eligible_drugs)
+    drug_name = selected_drug_info['name'] # This is DrugName enum
+    drug_quality = selected_drug_info['quality'] # This is DrugQuality enum
+    player_has_quantity = selected_drug_info['quantity']
+
+    quantity_to_sell = math.ceil(player_has_quantity * game_configs_data.FORCED_FIRE_SALE_QUANTITY_PERCENT)
+    quantity_to_sell = max(1, int(quantity_to_sell)) # Ensure at least 1 unit is considered if percentage is too low but > 0
+    quantity_to_sell = min(quantity_to_sell, player_has_quantity) # Cannot sell more than player has
+
+    if quantity_to_sell == 0 : # Should not happen if max(1, ..) but as a safe guard
+         add_to_log_callback(f"ForcedFireSale Event: Calculated quantity to sell for {drug_name.value} ({drug_quality.name}) is zero. Event fizzled.")
+         return False
+
+
+    normal_sell_price = region.get_sell_price(drug_name, drug_quality)
+    if normal_sell_price <= 0: # Cannot sell if market price is zero or less (e.g. drug not sold in region)
+        add_to_log_callback(f"ForcedFireSale Event: Normal sell price for {drug_name.value} ({drug_quality.name}) in {region.name.value} is {normal_sell_price}. Event fizzled.")
+        return False
+
+    fire_sale_price = normal_sell_price * (1 - game_configs_data.FORCED_FIRE_SALE_PRICE_PENALTY_PERCENT)
+    fire_sale_price = round(max(0.01, fire_sale_price), 2) # Ensure price is not negative or zero, min 1 cent
+
+    calculated_cash_gain = quantity_to_sell * fire_sale_price
+
+    # Ensure minimum cash gain if the sale proceeds and is positive
+    final_cash_gain = calculated_cash_gain
+    if calculated_cash_gain > 0: # Only apply min gain if the sale would actually yield something
+        final_cash_gain = max(calculated_cash_gain, game_configs_data.FORCED_FIRE_SALE_MIN_CASH_GAIN)
+
+    final_cash_gain = round(final_cash_gain, 2)
+
+    if final_cash_gain <= 0 and calculated_cash_gain <=0 : # If even with min gain, it's not profitable or results in zero.
+        add_to_log_callback(f"ForcedFireSale Event: Calculated cash gain for {drug_name.value} ({drug_quality.name}) is zero or less ({final_cash_gain}). Event fizzled.")
+        return False
+
+    # Perform the transaction
+    player_inventory.remove_drug(drug_name, drug_quality, quantity_to_sell)
+    player_inventory.cash += final_cash_gain
+
+    region_name_str = region.name.value if isinstance(region.name, Enum) else region.name
+    drug_name_str = drug_name.value if isinstance(drug_name, DrugName) else str(drug_name)
+    quality_name_str = drug_quality.name if isinstance(drug_quality, DrugQuality) else str(drug_quality)
+
+    message = (f"Bad Luck! You were forced into a fire sale in {region_name_str}! "
+               f"Sold {quantity_to_sell} units of {quality_name_str} {drug_name_str} "
+               f"at ${fire_sale_price:,.2f}/unit (penalty applied). Total gain: ${final_cash_gain:,.2f}.")
+
+    show_event_message_callback(message)
+    log_msg = (f"ForcedFireSale Event: Player sold {quantity_to_sell} {quality_name_str} {drug_name_str} "
+               f"in {region_name_str} for ${final_cash_gain:,.2f}. "
+               f"Player cash now: ${player_inventory.cash:,.2f}")
+    add_to_log_callback(log_msg)
+
+    return True
