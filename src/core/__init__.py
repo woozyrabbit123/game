@@ -3,12 +3,12 @@
 from .enums import DrugQuality, DrugName, RegionName, CryptoCoin
 
 __all__ = [
-    'DrugQuality',
-    'DrugName',
-    'RegionName',
-    'CryptoCoin',
-    'PlayerInventory',
-    'Region',
-    'AIRival',
-    'MarketEvent'
+    "DrugQuality",
+    "DrugName",
+    "RegionName",
+    "CryptoCoin",
+    "PlayerInventory",
+    "Region",
+    "AIRival",
+    "MarketEvent",
 ]

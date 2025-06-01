@@ -53,9 +53,23 @@ class TestPlayerInventorySkills(unittest.TestCase): # This class remains as is
         sp_after_first_unlock = self.player_inv.skill_points
 
         unlocked_again = self.player_inv.unlock_skill(self.skill_compart_id, self.skill_compart_cost)
-        self.assertTrue(unlocked_again)
-        self.assertEqual(self.player_inv.skill_points, sp_after_first_unlock - self.skill_compart_cost)
+
+        # Current behavior: unlock_skill does not check if already unlocked, so it will succeed and deduct points again if possible.
+        if self.player_inv.skill_points >= self.skill_compart_cost: # Check if points were enough for a second unlock
+             self.assertTrue(unlocked_again, "unlock_skill should return True if points are sufficient, even if skill is already unlocked.")
+             self.assertEqual(self.player_inv.skill_points, sp_after_first_unlock - self.skill_compart_cost, "Skill points should be deducted again with current implementation.")
+        else:
+            # This case would happen if skill_points were not enough for the second unlock.
+            self.assertFalse(unlocked_again, "unlock_skill should return False if points are insufficient for second unlock.")
+            self.assertEqual(self.player_inv.skill_points, sp_after_first_unlock, "Skill points should not change if second unlock attempt fails due to insufficient points.")
+
         self.assertIn(self.skill_compart_id, self.player_inv.unlocked_skills)
+
+        # Note for future refactoring of PlayerInventory.unlock_skill:
+        # If unlock_skill were changed to prevent re-unlocking or re-deducting points for an already unlocked skill:
+        # - It should ideally return False (or True for a "no-op success" but False is clearer for "action not performed").
+        # - The assertEqual for skill_points would then be:
+        #   self.assertEqual(self.player_inv.skill_points, sp_after_first_unlock, "Skill points should NOT change on attempting to re-unlock an already unlocked skill.")
 
 class TestPlayerInventoryGeneral(unittest.TestCase):
     def setUp(self):
@@ -250,6 +264,82 @@ class TestPlayerInventoryGeneral(unittest.TestCase):
         self.assertIn("Bitcoin: 2.3456", summary_str)
         self.assertIn("Skill Points: 5", summary_str)
         self.assertIn("Heat: 50", summary_str)
+
+class TestPlayerInventoryTransactions(unittest.TestCase):
+    def setUp(self):
+        self.initial_cash = 200.0
+        self.initial_capacity = 50
+        self.player_inv = PlayerInventory(max_capacity=self.initial_capacity, starting_cash=self.initial_cash)
+        self.drug_coke = DrugName.COKE
+        self.quality_standard = DrugQuality.STANDARD
+
+    def test_process_buy_drug_successful(self):
+        drug_price = 10.0
+        quantity_to_buy = 5
+        cost = drug_price * quantity_to_buy
+
+        can_buy = self.player_inv.process_buy_drug(self.drug_coke, self.quality_standard, quantity_to_buy, cost)
+
+        self.assertTrue(can_buy)
+        self.assertEqual(self.player_inv.cash, self.initial_cash - cost)
+        self.assertEqual(self.player_inv.get_quantity(self.drug_coke, self.quality_standard), quantity_to_buy)
+        self.assertEqual(self.player_inv.current_load, quantity_to_buy)
+
+    def test_process_buy_drug_fail_insufficient_cash(self):
+        drug_price = 50.0
+        quantity_to_buy = 5 # Total cost 250
+        cost = drug_price * quantity_to_buy
+
+        can_buy = self.player_inv.process_buy_drug(self.drug_coke, self.quality_standard, quantity_to_buy, cost)
+
+        self.assertFalse(can_buy)
+        self.assertEqual(self.player_inv.cash, self.initial_cash) # Cash unchanged
+        self.assertEqual(self.player_inv.get_quantity(self.drug_coke, self.quality_standard), 0) # Drug not added
+        self.assertEqual(self.player_inv.current_load, 0) # Load unchanged
+
+    def test_process_buy_drug_fail_insufficient_space(self):
+        drug_price = 1.0
+        quantity_to_buy = self.initial_capacity + 10 # Exceeds capacity
+        cost = drug_price * quantity_to_buy
+
+        can_buy = self.player_inv.process_buy_drug(self.drug_coke, self.quality_standard, quantity_to_buy, cost)
+
+        self.assertFalse(can_buy)
+        self.assertEqual(self.player_inv.cash, self.initial_cash) # Cash unchanged
+        self.assertEqual(self.player_inv.get_quantity(self.drug_coke, self.quality_standard), 0) # Drug not added
+        self.assertEqual(self.player_inv.current_load, 0) # Load unchanged
+
+    def test_process_sell_drug_successful(self):
+        # First, add some drugs to sell
+        initial_quantity = 10
+        add_cost = 0 # Not relevant for sell test, but add_drug needs cost if process_buy_drug was used
+        self.player_inv.add_drug(self.drug_coke, self.quality_standard, initial_quantity)
+        # Manually set cash if add_drug doesn't handle it or if it's simpler for setup
+        self.player_inv.cash = self.initial_cash # Reset cash after adding drug for consistent test state
+
+        drug_price = 15.0
+        quantity_to_sell = 5
+        revenue = drug_price * quantity_to_sell
+
+        can_sell = self.player_inv.process_sell_drug(self.drug_coke, self.quality_standard, quantity_to_sell, revenue)
+
+        self.assertTrue(can_sell)
+        self.assertEqual(self.player_inv.cash, self.initial_cash + revenue)
+        self.assertEqual(self.player_inv.get_quantity(self.drug_coke, self.quality_standard), initial_quantity - quantity_to_sell)
+        self.assertEqual(self.player_inv.current_load, initial_quantity - quantity_to_sell)
+
+    def test_process_sell_drug_fail_insufficient_quantity(self):
+        # Player has no drugs initially
+        drug_price = 15.0
+        quantity_to_sell = 5
+        revenue = drug_price * quantity_to_sell
+
+        can_sell = self.player_inv.process_sell_drug(self.drug_coke, self.quality_standard, quantity_to_sell, revenue)
+
+        self.assertFalse(can_sell)
+        self.assertEqual(self.player_inv.cash, self.initial_cash) # Cash unchanged
+        self.assertEqual(self.player_inv.get_quantity(self.drug_coke, self.quality_standard), 0) # No drugs
+        self.assertEqual(self.player_inv.current_load, 0) # Load unchanged
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,27 +1,29 @@
 import unittest
-from src.game_state import initialize_regions, all_regions, current_player_region, current_day, initialize_global_state
+from src.game_state import GameState  # Import GameState class
 from src.core.enums import RegionName
-from src.core.region import Region # Required for type hinting if any, and for all_regions value types
-from src import game_configs # To allow initialize_global_state to run
+from src.core.region import Region
+# from src import game_configs # game_configs is imported by GameState
 
 class TestRegionInitialization(unittest.TestCase):
+    game_state_instance: GameState
+
     @classmethod
     def setUpClass(cls):
-        # Minimal setup to allow initialize_regions to run if it depends on global state
-        # If initialize_global_state is needed, call it.
-        # For now, assume initialize_regions can be called directly or after a minimal setup.
-        # game_state.initialize_game_state() # If it sets up necessary globals
-        initialize_regions()
+        """Set up a GameState instance for use in tests."""
+        cls.game_state_instance = GameState()
 
     def test_all_regions_created(self):
-        self.assertEqual(len(all_regions), 9)
+        """Test that the correct number of regions are created."""
+        self.assertEqual(len(self.game_state_instance.all_regions), 9)
 
     def test_region_names_are_keys(self):
+        """Test that all RegionName enum members are keys in all_regions and are Region objects."""
         for region_enum_member in RegionName:
-            self.assertIn(region_enum_member, all_regions)
-            self.assertIsInstance(all_regions[region_enum_member], Region)
+            self.assertIn(region_enum_member, self.game_state_instance.all_regions)
+            self.assertIsInstance(self.game_state_instance.all_regions[region_enum_member], Region)
 
     def test_new_regions_market_data_initialized(self):
+        """Test that newly added regions have their drug market data initialized."""
         new_region_enums = [
             RegionName.UNIVERSITY_HILLS,
             RegionName.RIVERSIDE,
@@ -29,8 +31,10 @@ class TestRegionInitialization(unittest.TestCase):
             RegionName.OLD_TOWN
         ]
         for region_enum in new_region_enums:
-            self.assertTrue(all_regions[region_enum].drug_market_data,
-                            f"Drug market data for {region_enum.value} should be initialized.")
+            region_obj = self.game_state_instance.all_regions.get(region_enum)
+            self.assertIsNotNone(region_obj, f"Region {region_enum.value} should exist.")
+            self.assertTrue(region_obj.drug_market_data, # type: ignore
+                            f"Drug market data for {region_enum.value} should be initialized and not empty.")
 
 if __name__ == '__main__':
     unittest.main()

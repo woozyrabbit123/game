@@ -15,50 +15,88 @@ if str(project_root) not in sys.path:
 from src.core.player_inventory import PlayerInventory
 from src.core.ai_rival import AIRival
 from src.core.enums import DrugName, RegionName
-from src.game_state import GameState # Updated import
+from src.game_state import GameState  # Updated import
 import src.game_configs as game_configs
+
 
 def main():
     print("Starting Project Narco-Syndicate (Pygame UI)...")
-    
+
     # Initialize core game components
     player_inv = PlayerInventory()
-    game_state_instance = GameState() # Instantiate GameState
+    game_state_instance = GameState()  # Instantiate GameState
 
     # Initialize AI Rivals
     ai_rivals_list = [
-        AIRival(name="The Chemist", primary_drug=DrugName.PILLS, primary_region_name=RegionName.DOWNTOWN, aggression=0.6, activity_level=0.7),
-        AIRival(name="Silas", primary_drug=DrugName.COKE, primary_region_name=RegionName.DOWNTOWN, aggression=0.8, activity_level=0.5),
-        AIRival(name="Dockmaster Jones", primary_drug=DrugName.SPEED, primary_region_name=RegionName.DOCKS, aggression=0.5, activity_level=0.6),
-        AIRival(name="Mama Rosa", primary_drug=DrugName.WEED, primary_region_name=RegionName.SUBURBS, aggression=0.4, activity_level=0.8),
-        AIRival(name="Sergei", primary_drug=DrugName.HEROIN, primary_region_name=RegionName.DOCKS, aggression=0.7, activity_level=0.6)
+        AIRival(
+            name="The Chemist",
+            primary_drug=DrugName.PILLS,
+            primary_region_name=RegionName.DOWNTOWN,
+            aggression=0.6,
+            activity_level=0.7,
+        ),
+        AIRival(
+            name="Silas",
+            primary_drug=DrugName.COKE,
+            primary_region_name=RegionName.DOWNTOWN,
+            aggression=0.8,
+            activity_level=0.5,
+        ),
+        AIRival(
+            name="Dockmaster Jones",
+            primary_drug=DrugName.SPEED,
+            primary_region_name=RegionName.DOCKS,
+            aggression=0.5,
+            activity_level=0.6,
+        ),
+        AIRival(
+            name="Mama Rosa",
+            primary_drug=DrugName.WEED,
+            primary_region_name=RegionName.SUBURBS,
+            aggression=0.4,
+            activity_level=0.8,
+        ),
+        AIRival(
+            name="Sergei",
+            primary_drug=DrugName.HEROIN,
+            primary_region_name=RegionName.DOCKS,
+            aggression=0.7,
+            activity_level=0.6,
+        ),
     ]
     game_state_instance.ai_rivals = ai_rivals_list
 
     # Set initial player region
     # Regions are initialized in GameState constructor.
     # We need to set the current player region and get the instance.
-    initial_region_name = RegionName.DOWNTOWN # Define the starting region name
+    initial_region_name = RegionName.DOWNTOWN  # Define the starting region name
     game_state_instance.set_current_player_region(initial_region_name)
     current_region_instance = game_state_instance.get_current_player_region()
 
     if not current_region_instance:
         # This should ideally not happen if initial_region_name is valid and regions are initialized.
-        print(f"Fatal Error: Initial region {initial_region_name.value} could not be set or found. Exiting.")
+        print(
+            f"Fatal Error: Initial region {initial_region_name.value} could not be set or found. Exiting."
+        )
         sys.exit(1)
 
     # Launch Pygame UI
     try:
         from src.ui_pygame.app import game_loop
+
         print("Launching game window...")
         # Pass the GameState instance to the game_loop
-        game_loop(player_inv, current_region_instance, game_state_instance, game_configs)
+        game_loop(
+            player_inv, current_region_instance, game_state_instance, game_configs
+        )
     except ImportError as e:
         print(f"Pygame UI module not found or Pygame not installed correctly: {e}")
     except Exception as e:
         print(f"An error occurred while running the Pygame UI: {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     main()

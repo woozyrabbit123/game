@@ -5,8 +5,8 @@ setup(
     version="0.1",
     packages=find_packages(),
     install_requires=[
-        'pygame',
-        'textual',
+        "pygame",
+        "textual",
     ],
-    python_requires='>=3.10',
+    python_requires=">=3.10",
 )
