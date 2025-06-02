@@ -4,7 +4,7 @@ import random
 
 from src.game_state import GameState
 from src.core.enums import RegionName, CryptoCoin, DrugName, DrugQuality
-from src import game_configs
+from src import narco_configs as game_configs
 
 class TestGameState(unittest.TestCase):
 

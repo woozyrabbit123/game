@@ -5,7 +5,7 @@ from src.mechanics.market_impact import apply_player_buy_impact, apply_player_se
 from src.core.region import Region
 from src.core.player_inventory import PlayerInventory
 from src.core.enums import RegionName, DrugName, DrugQuality, SkillID
-from src import game_configs # For direct access to constants if needed for setup or reference
+from src import narco_configs as game_configs # For direct access to constants if needed for setup or reference
 
 class TestPlayerMarketImpact(unittest.TestCase):
     def setUp(self):

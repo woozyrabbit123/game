@@ -14,7 +14,7 @@ from src.core.region import Region
 from src.game_state import GameState # Added for GameState spec
 import math # Added for skill effect calculations
 from src.core.enums import RegionName, DrugName, DrugQuality, CryptoCoin # Added CryptoCoin
-from src import game_configs # For TRAVEL_COST_CASH
+from src import narco_configs as game_configs # For TRAVEL_COST_CASH
 
 # Mock the global state object if action_travel_to_region depends on it
 # This is a common pattern if 'state' is a module or a global instance

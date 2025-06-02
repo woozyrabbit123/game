@@ -18,7 +18,7 @@ from src.core.player_inventory import PlayerInventory
 from src.core.ai_rival import AIRival
 from src.core.enums import DrugName, RegionName
 from src.game_state import GameState  # Updated import
-import src.game_configs as game_configs
+import src.narco_configs as game_configs
 
 
 logger = get_logger(__name__)

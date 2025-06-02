@@ -7,7 +7,8 @@ skill definitions, and cryptocurrency settings.
 These configurations control the balance and features of the game.
 """
 
-from typing import Dict, List, Union, Tuple  # Added Union for EventConfigValues, Tuple for definitions
+# TEST_CONFIG_VAR = True # Commenting this out as it was for testing
+from typing import Dict, List, Union, Tuple, Any # Added Union for EventConfigValues, Tuple for definitions, Any for AI_RIVAL_DEFINITIONS
 from .core.enums import CryptoCoin, DrugQuality, DrugName, RegionName, SkillID
 
 # --- Global Game Settings and Constants ---
@@ -366,12 +367,32 @@ HEAT_INCREASE_CONFISCATION_MAX: int = 15 #: Max heat increase if drugs are confi
 JAIL_CHANCE_BASE_IF_HEAT_THRESHOLD_MET: float = 0.2  #: Base chance of jail if heat is already high.
 JAIL_CHANCE_MAX: float = 0.75  #: Maximum chance of being jailed during a police stop.
 # Note: Other constants like BRIBE_MIN_COST, POLICE_STOP_HEAT_THRESHOLD etc. are assumed to exist from previous steps.
+BRIBE_MIN_COST: float = 50.0 #: Minimum cost for a bribe.
+BRIBE_BASE_COST_PERCENT_OF_CASH: float = 0.10 #: Bribe cost as a percentage of player's current cash.
+BRIBE_SUCCESS_CHANCE_BASE: float = 0.60 #: Base chance for a bribe to succeed.
+BRIBE_SUCCESS_CHANCE_HEAT_PENALTY: float = 0.01 #: Penalty to bribe success chance per heat point over threshold.
+CONFISCATION_PERCENTAGE_MIN: float = 0.10 # Min percentage of a drug stack that can be confiscated.
+CONFISCATION_PERCENTAGE_MAX: float = 0.50 # Max percentage of a drug stack that can be confiscated.
+JAIL_TIME_DAYS_BASE: int = 3 # Base number of days player spends in jail.
+JAIL_TIME_HEAT_MULTIPLIER: float = 0.1 # Additional days in jail per point of heat over threshold.
+JAIL_CHANCE_HEAT_THRESHOLD: int = 70 # Heat threshold above which jail becomes a higher risk.
+JAIL_CHANCE_IF_HIGH_TIER_DRUGS_FOUND: float = 0.25 # Additional chance of jail if high-tier drugs are found.
+
 
 # --- Laundering ---
 LAUNDERING_HEAT_FACTOR_PER_CASH_UNIT: float = 0.0005  #: Heat generated per unit of cash laundered (e.g., 0.05 for $100). If this seems high, adjust. Example: 100k cash * 0.0005 = 50 heat.
 
 # --- Informant System Additions ---
 INFORMANT_BETRAYAL_TRUST_LOSS: int = 10 #: Amount of trust lost when an informant betrays the player.
+
+# --- Crypto Shop / Digital Arsenal ---
+DIGITAL_ARSENAL_COST_DC: float = 15000.0 #: Cost in DrugCoin for the Digital Arsenal feature.
+DC_STAKING_DAILY_RETURN_PERCENT: float = 0.001 #: Daily return percentage for staked DrugCoin.
+
+# --- Corrupt Official ---
+CORRUPT_OFFICIAL_HEAT_REDUCTION_AMOUNT: int = 20 #: Amount of heat reduced by bribing the corrupt official.
+CORRUPT_OFFICIAL_BASE_BRIBE_COST: float = 1000.0 #: Base cost to bribe the corrupt official.
+CORRUPT_OFFICIAL_BRIBE_COST_PER_HEAT_POINT: float = 50.0 #: Additional bribe cost per point of regional heat.
 
 
 # --- Event Tier Targets ---

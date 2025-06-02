@@ -14,7 +14,7 @@ import sys  # For stderr logging
 from enum import Enum
 from typing import Any, Callable, List, Optional, Tuple, Union
 
-from .. import game_configs
+from .. import narco_configs as game_configs # Alias to minimize changes below
 from ..core.ai_rival import AIRival
 from ..core.enums import DrugName, DrugQuality, EventType  # SkillID removed
 from ..core.market_event import MarketEvent
@@ -22,7 +22,7 @@ from ..core.player_inventory import PlayerInventory
 from ..core.region import Region
 from ..game_state import GameState
 # Specific config imports - these are numerous, consider accessing via game_configs object
-from ..game_configs import (
+from ..narco_configs import ( # Changed here
     EVENT_TIER_TARGET_CHEAP_STASH,
     EVENT_TIER_TARGET_DEMAND_SPIKE,
     EVENT_TIER_TARGET_SUPPLY_DISRUPTION,

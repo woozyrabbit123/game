@@ -11,7 +11,7 @@ print(f"Working directory: {project_root}")
 print(f"Directory contents: {os.listdir(project_root)}")
 
 try:
-    import src.game_configs
+    import src.narco_configs as game_configs
 
     print("Successfully imported game_configs")
 except ImportError as e:

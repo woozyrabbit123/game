@@ -55,7 +55,7 @@ class PlayerInventory:
         if max_capacity is None or starting_cash is None:
             # Lazy import: avoid circular dependency if PlayerInventory is
             # imported by game_configs indirectly.
-            from ..game_configs import PLAYER_STARTING_CASH, PLAYER_MAX_CAPACITY
+            from ..narco_configs import PLAYER_STARTING_CASH, PLAYER_MAX_CAPACITY
 
             max_capacity = (
                 max_capacity if max_capacity is not None else PLAYER_MAX_CAPACITY

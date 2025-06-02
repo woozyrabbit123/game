@@ -28,9 +28,7 @@ from ..core.market_event import MarketEvent  # Added for isinstance checks
 from ..game_state import GameState  # Added GameState import
 from ..mechanics import market_impact, event_manager
 from ..mechanics.encounter_mechanics import calculate_police_encounter_chance # Import new function
-from .. import (
-    game_configs as game_configs_module,
-)  # To access game_configs directly for MUGGING_EVENT_CHANCE
+from src import narco_configs as game_configs_module # To access game_configs directly for MUGGING_EVENT_CHANCE
 
 from .ui_theme import (
     RICH_BLACK,
