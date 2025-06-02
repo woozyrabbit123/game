@@ -11,14 +11,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 # Third-party imports would go here if any (none currently)
 
 # Local application imports
-from ..game_configs import (
-    HEAT_PRICE_INCREASE_THRESHOLDS,
-    HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3,
-    TIER1_STANDARD_INITIAL_STOCK,  # Added
-    TIER_GT1_CUT_STOCK_RANGE,     # Added
-    TIER_GT1_PURE_STOCK_RANGE,    # Added
-    TIER_GT1_STANDARD_STOCK_RANGE  # Added
-)
+from .. import narco_configs # Modified to import module
 from .drug import Drug
 from .enums import DrugName, DrugQuality, EventType, RegionName
 from .market_event import MarketEvent
@@ -115,14 +108,14 @@ class Region:
             if initial_stocks and quality_enum_member in initial_stocks:
                 stock = initial_stocks[quality_enum_member]
             elif tier == 1 and quality_enum_member == DrugQuality.STANDARD:
-                stock = TIER1_STANDARD_INITIAL_STOCK
+                stock = narco_configs.TIER1_STANDARD_INITIAL_STOCK
             elif tier > 1:
                 if quality_enum_member == DrugQuality.PURE:
-                    stock = random.randint(*TIER_GT1_PURE_STOCK_RANGE)
+                    stock = random.randint(*narco_configs.TIER_GT1_PURE_STOCK_RANGE)
                 elif quality_enum_member == DrugQuality.STANDARD:
-                    stock = random.randint(*TIER_GT1_STANDARD_STOCK_RANGE)
+                    stock = random.randint(*narco_configs.TIER_GT1_STANDARD_STOCK_RANGE)
                 else:  # CUT
-                    stock = random.randint(*TIER_GT1_CUT_STOCK_RANGE)
+                    stock = random.randint(*narco_configs.TIER_GT1_CUT_STOCK_RANGE)
 
             drug_data['available_qualities'][quality_enum_member] = {
                 'quantity_available': stock,
@@ -133,7 +126,7 @@ class Region:
     def _get_heat_price_multiplier(self) -> float:
         """Calculates price multiplier based on current regional heat."""
         for threshold, multiplier in sorted(
-            HEAT_PRICE_INCREASE_THRESHOLDS.items(), reverse=True
+            narco_configs.HEAT_PRICE_INCREASE_THRESHOLDS.items(), reverse=True
         ):
             if self.current_heat >= threshold:
                 return multiplier
@@ -142,7 +135,7 @@ class Region:
     def _get_heat_stock_reduction_factor(self) -> float:
         """Calculates stock reduction factor from heat for Tier 2/3 drugs."""
         for threshold, factor in sorted(
-            HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3.items(), reverse=True
+            narco_configs.HEAT_STOCK_REDUCTION_THRESHOLDS_T2_T3.items(), reverse=True
         ):
             if self.current_heat >= threshold:
                 return factor
@@ -432,14 +425,14 @@ class Region:
             for quality_enum, quality_data in list(available_qualities.items()):
                 current_stock = 0
                 if tier == 1 and quality_enum == DrugQuality.STANDARD:
-                    current_stock = TIER1_STANDARD_INITIAL_STOCK
+                    current_stock = narco_configs.TIER1_STANDARD_INITIAL_STOCK
                 elif tier > 1:
                     if quality_enum == DrugQuality.PURE:
-                        current_stock = random.randint(*TIER_GT1_PURE_STOCK_RANGE)
+                        current_stock = random.randint(*narco_configs.TIER_GT1_PURE_STOCK_RANGE)
                     elif quality_enum == DrugQuality.STANDARD:
-                        current_stock = random.randint(*TIER_GT1_STANDARD_STOCK_RANGE)
+                        current_stock = random.randint(*narco_configs.TIER_GT1_STANDARD_STOCK_RANGE)
                     else:  # CUT
-                        current_stock = random.randint(*TIER_GT1_CUT_STOCK_RANGE)
+                        current_stock = random.randint(*narco_configs.TIER_GT1_CUT_STOCK_RANGE)
 
                 # Apply CHEAP_STASH event modifications
                 for event in self.active_market_events:

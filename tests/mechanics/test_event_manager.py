@@ -13,7 +13,7 @@ from src.core.ai_rival import AIRival # Added import
 from src.core.enums import EventType, DrugName, DrugQuality, RegionName
 
 # Game Configurations
-from src import game_configs # Direct import to access EVENT_CONFIGS
+from src import narco_configs as game_configs # Direct import to access EVENT_CONFIGS
 
 # Functions to test
 from src.mechanics.event_manager import (

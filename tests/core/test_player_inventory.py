@@ -3,7 +3,7 @@ import unittest
 from src.core.player_inventory import PlayerInventory
 from src.core.enums import DrugName, DrugQuality, CryptoCoin, SkillID # Added DrugName, CryptoCoin
 # Assuming game_configs might be needed for default values if not mocking them all
-from src import game_configs
+from src import narco_configs as game_configs
 
 class TestPlayerInventorySkills(unittest.TestCase): # This class remains as is
     def setUp(self):

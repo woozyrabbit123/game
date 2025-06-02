@@ -8,7 +8,9 @@ from ...core.ai_rival import AIRival
 from ...core.enums import DrugQuality, DrugName, RegionName  # Added Enums
 from ...core.market_event import MarketEvent
 from ...game_state import GameState  # Import GameState
-from .ui_helpers import parse_drug_quality, print_market_header
+from .ui_helpers import parse_drug_quality # Removed print_market_header
+# from ... import game_configs # Import game_configs module -> Will be changed to narco_configs
+from ... import narco_configs as game_configs # Corrected import
 from ...mechanics.market_impact import (
     apply_player_buy_impact,
     apply_player_sell_impact,
@@ -19,15 +21,15 @@ from ...mechanics.market_impact import (
 )
 
 # from ... import game_state # Removed old game_state import
-from ... import game_configs  # Import game_configs module
-from ...game_configs import (
+# from ... import game_configs  # Import game_configs module # This line is redundant due to the alias above
+from ...narco_configs import ( # Ensure this also points to narco_configs
     CAPACITY_UPGRADE_COST_INITIAL,
     CAPACITY_UPGRADE_COST_MULTIPLIER,
     CAPACITY_UPGRADE_AMOUNT,
     SKILL_POINTS_PER_X_DAYS,
     SKILL_MARKET_INTUITION_COST,
     SKILL_DIGITAL_FOOTPRINT_COST,
-    INFORMANT_TIP_COST,
+    INFORMANT_TIP_COST_RUMOR, # Changed from INFORMANT_TIP_COST
     INFORMANT_TRUST_GAIN_PER_TIP,
     INFORMANT_MAX_TRUST,
     CRYPTO_VOLATILITY,
@@ -42,7 +44,7 @@ from ...game_configs import (
     BRIBE_MIN_COST,
     BRIBE_SUCCESS_CHANCE_BASE,
     BRIBE_SUCCESS_CHANCE_HEAT_PENALTY,
-    CONFISCATION_CHANCE_ON_SEARCH,
+    POLICE_STOP_CONFISCATION_CHANCE, # Changed from CONFISCATION_CHANCE_ON_SEARCH
     CONFISCATION_PERCENTAGE_MIN,
     CONFISCATION_PERCENTAGE_MAX,
     JAIL_TIME_DAYS_BASE,
@@ -151,7 +153,7 @@ def handle_police_stop_event(
             drugs_found_during_search: bool = False
             if (
                 not player_inventory.items
-                or random.random() > CONFISCATION_CHANCE_ON_SEARCH
+                or random.random() > POLICE_STOP_CONFISCATION_CHANCE
             ):
                 print(
                     "Surprisingly, they don't find anything illicit. 'Alright, you're free to go. Stay out of trouble.'"
@@ -981,10 +983,10 @@ def handle_talk_to_informant(
     )
     pad_line_num += 1
     content_pad.addstr(
-        pad_line_num, 0, f"Tip Cost: ${INFORMANT_TIP_COST:.2f}", curses.color_pair(1)
+        pad_line_num, 0, f"Tip Cost (Rumor): ${INFORMANT_TIP_COST_RUMOR:.2f}", curses.color_pair(1)
     )
     pad_line_num += (
-        1  # Assumes INFORMANT_TIP_COST is globally available from game_configs
+        1  # Assumes INFORMANT_TIP_COST_RUMOR is globally available from game_configs
     )
     content_pad.addstr(pad_line_num, 0, "0. Back to Main Menu", curses.color_pair(5))
     content_pad.noutrefresh(0, 0, 6, 0, 25, 79)  # TODO: Adjust viewport
@@ -998,15 +1000,15 @@ def handle_talk_to_informant(
     if choice_str == "0":
         return
     if (
-        player_inventory.cash < INFORMANT_TIP_COST
-    ):  # Assumes INFORMANT_TIP_COST is available
+        player_inventory.cash < INFORMANT_TIP_COST_RUMOR
+    ):  # Assumes INFORMANT_TIP_COST_RUMOR is available
         log_win.clear()
         log_win.addstr(0, 0, "Not enough cash for a tip.", curses.color_pair(4))
         log_win.noutrefresh()
         curses.doupdate()
         return
 
-    player_inventory.cash -= INFORMANT_TIP_COST
+    player_inventory.cash -= INFORMANT_TIP_COST_RUMOR
     tip_types_list: List[str] = [
         "market",
         "heat",
@@ -1759,11 +1761,11 @@ def handle_view_market(
     # For this example, let's assume print_market_header draws 2 lines
     # and we pass pad_current_line to it, or it draws at its current cursor.
     # To be safe, let's manage pad_current_line explicitly here.
-    temp_header_pad = content_pad.derwin(2, content_viewport_width, pad_current_line, 0)
-    print_market_header(
-        temp_header_pad, region.name.value, show_trend=show_trend_icons
-    )  # Pass region name string
-    temp_header_pad.noutrefresh()  # Refresh the sub-pad if it was used directly
+    # temp_header_pad = content_pad.derwin(2, content_viewport_width, pad_current_line, 0) # Removed
+    # print_market_header( # Removed
+    #     temp_header_pad, region.name.value, show_trend=show_trend_icons
+    # )
+    # temp_header_pad.noutrefresh()  # Removed
     # Or, if print_market_header writes directly to content_pad starting at pad_current_line:
     # print_market_header(content_pad.derwin(pad_current_line,0), region.name, show_trend=show_trend_icons) # this is complex
     # Simplest: Assume print_market_header writes to the passed window at its (0,0)

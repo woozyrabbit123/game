@@ -16,7 +16,7 @@ from .core.ai_rival import AIRival
 from .core.region import (
     Region,
 )  # Assuming Region class has a 'name' attribute and a 'to_dict()' method
-from . import game_configs
+from src import narco_configs as game_configs
 
 
 logger = get_logger(__name__)
@@ -232,31 +232,6 @@ class GameState:
                      logger.error(f"Unexpected error processing drug definition '{drug_def_tuple}' in region {region_name_str}. Error: {e_drug_other}. Skipping this drug.")
                      continue
             self.all_regions[region_enum] = region
-
-        # After all regions and their markets are initialized, restock them
-        for region_obj in self.all_regions.values():
-                base_price,
-                max_price,
-                demand_factor,
-                qualities_stock_ranges,
-            ) in drugs_data:
-                # Generate random stock for each quality based on its min/max range
-                quality_stock_map: Dict[DrugQuality, int] = {
-                    quality_enum: random.randint(min_val, max_val)
-                    for quality_enum, (
-                        min_val,
-                        max_val,
-                    ) in qualities_stock_ranges.items()
-                }
-                # Region.initialize_drug_market might take DrugName (enum) or str. Assuming str for now.
-                region.initialize_drug_market(
-                    drug_name_str,
-                    base_price,
-                    max_price,
-                    demand_factor,
-                    quality_stock_map,
-                )
-            self.all_regions[region_enum] = region  # Store with Enum as key
 
         # After all regions and their markets are initialized, restock them
         for region_obj in self.all_regions.values():  # region_obj is Region

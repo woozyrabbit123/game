@@ -13,9 +13,9 @@ import random
 from enum import Enum  # Added Enum for isinstance checks
 from typing import Any, Callable, Dict, Optional  # TYPE_CHECKING, cast, RegionName removed
 
-from .. import game_configs # Import the whole module to access its attributes
+from .. import narco_configs as game_configs # Import the whole module to access its attributes
 from ..core.ai_rival import AIRival
-from ..core.enums import DrugName, SkillID # RegionName removed
+from ..core.enums import DrugName, SkillID, RegionName # RegionName added
 from ..core.player_inventory import PlayerInventory
 from ..core.region import Region
 

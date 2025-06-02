@@ -4,7 +4,7 @@ Defines the Drug class, representing a specific drug item with its attributes.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .. import game_configs  # Import the game_configs module
+from .. import narco_configs as game_configs  # Import the narco_configs module
 from .enums import DrugQuality
 
 if TYPE_CHECKING:

@@ -10,7 +10,7 @@ from src.core.market_event import MarketEvent
 from src.game_state import GameState # Added for GameState mock
 from src.core.player_inventory import PlayerInventory # Added for PlayerInventory mock
 # Import game_configs directly to access its dictionaries if Region uses them
-from src import game_configs
+from src import narco_configs as game_configs
 
 class TestRegion(unittest.TestCase):
     def setUp(self):

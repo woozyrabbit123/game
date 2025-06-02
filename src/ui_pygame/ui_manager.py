@@ -6,7 +6,7 @@ from ..core.enums import DrugName, DrugQuality, RegionName, CryptoCoin, SkillID,
 from ..core.player_inventory import PlayerInventory
 from ..core.region import Region
 from ..game_state import GameState
-from .. import game_configs as game_configs_module # To avoid conflict if game_configs is passed as arg
+from src import narco_configs as game_configs_module # To avoid conflict if game_configs is passed as arg
 
 from .ui_theme import (
     FONT_XLARGE, FONT_LARGE, FONT_MEDIUM, FONT_SMALL, FONT_XSMALL, FONT_LARGE_BOLD,
@@ -96,12 +96,12 @@ class UIManager:
     def _create_action_button(
         self,
         text: str,
-        action: Callable[..., Any], # Action can take arguments
-        action_args: Optional[Tuple[Any, ...]] = None,
+        action: Callable[..., Any],
         x: int,
         y: int,
         width: int,
         height: int,
+        action_args: Optional[Tuple[Any, ...]] = None,
         font: pygame.font.Font = FONT_MEDIUM, # FONT_MEDIUM from ui_theme
         is_enabled: bool = True,
     ) -> Button:
@@ -237,7 +237,7 @@ class UIManager:
             popup_x_val, popup_y_val = (UI_CONSTANTS.SCREEN_WIDTH - popup_width_val) / 2, (UI_CONSTANTS.SCREEN_HEIGHT - popup_height_val) / 2
             btn_x_val, btn_y_val = (popup_x_val + (popup_width_val - btn_w_val) / 2, popup_y_val + popup_height_val - btn_h_val - UI_CONSTANTS.POPUP_BUTTON_MARGIN_Y)
             self.game_over_buttons.append(
-                self._create_action_button("Exit Game", self.action_exit_game, int(btn_x_val), int(btn_y_val), btn_w_val, btn_h_val, font=FONT_MEDIUM)
+                self._create_action_button("Exit Game", self.action_exit_game, int(btn_x_val), int(btn_y_val), btn_w_val, btn_h_val, font=FONT_MEDIUM) # action_args=None implicitly
             )
             active_list = self.game_over_buttons
 
@@ -259,7 +259,7 @@ class UIManager:
                 if col_val == 1 and row_in_col_val == 0: y_pos_val = start_y
                 is_enabled_val: bool = enabled_check_func(self.game_state) if enabled_check_func else True
                 self.main_menu_buttons.append(
-                    self._create_action_button(text_val, action_val, x_pos_val, y_pos_val, button_width, button_height, is_enabled=is_enabled_val)
+                    self._create_action_button(text_val, action_val, x_pos_val, y_pos_val, button_width, button_height, is_enabled=is_enabled_val) # action_args=None implicitly
                 )
             active_list = self.main_menu_buttons
 
@@ -272,7 +272,7 @@ class UIManager:
                 btn_w_val, btn_h_val = UI_CONSTANTS.POPUP_BUTTON_WIDTH, UI_CONSTANTS.POPUP_BUTTON_HEIGHT
                 btn_x_val, btn_y_val = (popup_x_val + (popup_w_val - btn_w_val) / 2, popup_y_val + popup_h_val - btn_h_val - UI_CONSTANTS.POPUP_BUTTON_MARGIN_Y)
                 self.blocking_event_popup_buttons.append(
-                    self._create_action_button(btn_txt_val, self.action_close_blocking_event_popup, int(btn_x_val), int(btn_y_val), btn_w_val, btn_h_val, font=FONT_SMALL)
+                    self._create_action_button(btn_txt_val, self.action_close_blocking_event_popup, int(btn_x_val), int(btn_y_val), btn_w_val, btn_h_val, font=FONT_SMALL) # action_args=None implicitly
                 )
             active_list = self.blocking_event_popup_buttons
 
@@ -302,8 +302,8 @@ class UIManager:
             confirm_text = self.current_transaction_type.capitalize() if self.current_transaction_type else "Confirm"
             # These actions will need to call methods in app.py that take UIManager as arg or UIManager calls app.py
             # For now, using placeholders or direct calls if simple enough
-            self.transaction_input_buttons.append(self._create_action_button(confirm_text, placeholder_action, UI_CONSTANTS.SCREEN_WIDTH // 2 - 110, UI_CONSTANTS.SCREEN_HEIGHT - 100, 100, 40))
-            self.transaction_input_buttons.append(self._create_action_button("Cancel", placeholder_action, UI_CONSTANTS.SCREEN_WIDTH // 2 + 10, UI_CONSTANTS.SCREEN_HEIGHT - 100, 100, 40))
+            self.transaction_input_buttons.append(self._create_action_button(confirm_text, placeholder_action, UI_CONSTANTS.SCREEN_WIDTH // 2 - 110, UI_CONSTANTS.SCREEN_HEIGHT - 100, 100, 40)) # action_args=None implicitly
+            self.transaction_input_buttons.append(self._create_action_button("Cancel", placeholder_action, UI_CONSTANTS.SCREEN_WIDTH // 2 + 10, UI_CONSTANTS.SCREEN_HEIGHT - 100, 100, 40)) # action_args=None implicitly
             active_list = self.transaction_input_buttons
 
         # Add more elif branches for tech_contact, skills, upgrades, tech_input_coin_select, tech_input_amount
@@ -311,7 +311,7 @@ class UIManager:
         # and then set active_list.
 
         else: # Default or unknown view
-            self.main_menu_buttons.append(self._create_action_button("Main Menu (Default)", self.action_open_main_menu, start_x, start_y, button_width, button_height))
+            self.main_menu_buttons.append(self._create_action_button("Main Menu (Default)", self.action_open_main_menu, start_x, start_y, button_width, button_height)) # action_args=None implicitly
             active_list = self.main_menu_buttons
 
         self.active_buttons_list = active_list

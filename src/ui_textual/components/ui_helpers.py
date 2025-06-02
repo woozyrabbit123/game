@@ -17,7 +17,7 @@ from ...game_state import GameState # For type hinting GameState
 from ...core.player_inventory import PlayerInventory # For type hinting PlayerInventory
 from ...core.region import Region # For type hinting Region
 # Import constants for debt amounts and due days
-from ...game_configs import (
+from ...narco_configs import (
     DEBT_PAYMENT_1_AMOUNT, DEBT_PAYMENT_1_DUE_DAY,
     DEBT_PAYMENT_2_AMOUNT, DEBT_PAYMENT_2_DUE_DAY,
     DEBT_PAYMENT_3_AMOUNT, DEBT_PAYMENT_3_DUE_DAY
