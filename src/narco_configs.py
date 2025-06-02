@@ -9,7 +9,7 @@ These configurations control the balance and features of the game.
 
 # TEST_CONFIG_VAR = True # Commenting this out as it was for testing
 from typing import Dict, List, Union, Tuple, Any # Added Union for EventConfigValues, Tuple for definitions, Any for AI_RIVAL_DEFINITIONS
-from .core.enums import CryptoCoin, DrugQuality, DrugName, RegionName, SkillID
+from .core.enums import CryptoCoin, DrugQuality, DrugName, RegionName, SkillID, ContactID # Added ContactID
 
 # --- Global Game Settings and Constants ---
 
@@ -269,39 +269,183 @@ GHOST_PROTOCOL_DECAY_BOOST_PERCENT: float = 0.15
 SKILL_DIGITAL_FOOTPRINT_COST: int = 2
 SKILL_MARKET_ANALYST_COST: int = 2
 DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT: float = 0.25
+# Effect magnitude constants for new skills
+ADVANCED_MARKET_ANALYSIS_PRICE_IMPROVEMENT: float = 0.025 # 2.5%
+MASTER_NEGOTIATOR_PRICE_IMPROVEMENT: float = 0.05 # 5%
+BASIC_CONNECTIONS_TRUST_GAIN_BONUS: int = 1
+EXPANDED_NETWORK_TIP_COST_REDUCTION: float = 0.10 # 10%
+SYNDICATE_INFLUENCE_FREE_BRIBE_CHANCE: float = 0.15 # 15% chance
+
 SKILL_PHONE_STACKING_HEAT_REDUCTION_PERCENT: float = (
     0.25  # Additional reduction when both phone and skill are active
 )
 
 #: Definitions for player skills, including their names, costs, and descriptions.
-SkillDefinitionValues = Union[str, int]  #: Type alias for values in SKILL_DEFINITIONS.
+SkillDefinitionValues = Union[str, int, List[SkillID], float]  # Added List[SkillID] for prerequisites, float for effect_value
 SKILL_DEFINITIONS: Dict[SkillID, Dict[str, SkillDefinitionValues]] = {
-    SkillID.MARKET_INTUITION: {  #: Skill to see market price trends.
+    # --- Street Smarts ---
+    SkillID.MARKET_INTUITION: {
         "name": "Market Intuition",
-        "cost": SKILL_MARKET_INTUITION_COST,
+        "cost": SKILL_MARKET_INTUITION_COST, # Existing const: 1
+        "tier": 1,
+        "category": "Street Smarts",
         "description": "Shows market price trends for drugs.",
+        "prerequisites": []
     },
+    SkillID.ADVANCED_MARKET_ANALYSIS: {
+        "name": "Advanced Market Analysis",
+        "cost": 2, # New cost
+        "tier": 2,
+        "category": "Street Smarts",
+        "description": f"Improves buy/sell prices by {ADVANCED_MARKET_ANALYSIS_PRICE_IMPROVEMENT*100:.1f}%.",
+        "effect_value": ADVANCED_MARKET_ANALYSIS_PRICE_IMPROVEMENT,
+        "prerequisites": [SkillID.MARKET_INTUITION]
+    },
+    SkillID.MASTER_NEGOTIATOR: {
+        "name": "Master Negotiator",
+        "cost": 3, # New cost
+        "tier": 3,
+        "category": "Street Smarts",
+        "description": f"Significantly improves buy/sell prices by {MASTER_NEGOTIATOR_PRICE_IMPROVEMENT*100:.1f}%.",
+        "effect_value": MASTER_NEGOTIATOR_PRICE_IMPROVEMENT,
+        "prerequisites": [SkillID.ADVANCED_MARKET_ANALYSIS]
+    },
+
+    # --- Network ---
+    SkillID.BASIC_CONNECTIONS: {
+        "name": "Basic Connections",
+        "cost": 1, # New cost
+        "tier": 1,
+        "category": "Network",
+        "description": f"Gain +{BASIC_CONNECTIONS_TRUST_GAIN_BONUS} extra trust with Informant per tip.",
+        "effect_value": BASIC_CONNECTIONS_TRUST_GAIN_BONUS,
+        "prerequisites": []
+    },
+    SkillID.EXPANDED_NETWORK: {
+        "name": "Expanded Network",
+        "cost": 2, # New cost
+        "tier": 2,
+        "category": "Network",
+        "description": f"Reduces cost of Informant tips by {EXPANDED_NETWORK_TIP_COST_REDUCTION*100:.0f}%.",
+        "effect_value": EXPANDED_NETWORK_TIP_COST_REDUCTION,
+        "prerequisites": [SkillID.BASIC_CONNECTIONS]
+    },
+    SkillID.SYNDICATE_INFLUENCE: {
+        "name": "Syndicate Influence",
+        "cost": 3, # New cost
+        "tier": 3,
+        "category": "Network",
+        "description": f"{SYNDICATE_INFLUENCE_FREE_BRIBE_CHANCE*100:.0f}% chance for Corrupt Official bribe to be free.",
+        "effect_value": SYNDICATE_INFLUENCE_FREE_BRIBE_CHANCE,
+        "prerequisites": [SkillID.EXPANDED_NETWORK]
+    },
+
+    # --- OpSec ---
     SkillID.DIGITAL_FOOTPRINT: {
         "name": "Digital Footprint",
-        "cost": SKILL_DIGITAL_FOOTPRINT_COST,
+        "cost": SKILL_DIGITAL_FOOTPRINT_COST, # Existing const: 2
+        "tier": 1,
+        "category": "OpSec",
         "description": f"Reduces heat from crypto transactions by {DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT*100:.0f}%.",
+        "effect_value": DIGITAL_FOOTPRINT_HEAT_REDUCTION_PERCENT,
+        "prerequisites": []
     },
-    SkillID.COMPARTMENTALIZATION: {  #: Skill to reduce heat from drug sales.
+    SkillID.COMPARTMENTALIZATION: {
         "name": "Compartmentalization",
-        "cost": SKILL_COMPARTMENTALIZATION_COST,
+        "cost": SKILL_COMPARTMENTALIZATION_COST, # Existing const: 3
+        "tier": 2,
+        "category": "OpSec",
         "description": f"Reduces heat generated from drug sales by {COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT*100:.0f}%.",
+        "effect_value": COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT,
+        "prerequisites": [SkillID.DIGITAL_FOOTPRINT]
     },
-    SkillID.GHOST_PROTOCOL: {  #: Skill to increase daily heat decay.
+    SkillID.GHOST_PROTOCOL: {
         "name": "Ghost Protocol",
-        "cost": SKILL_GHOST_PROTOCOL_COST,
+        "cost": SKILL_GHOST_PROTOCOL_COST, # Existing const: 5
+        "tier": 3,
+        "category": "OpSec",
         "description": f"Increases daily heat decay rate by {GHOST_PROTOCOL_DECAY_BOOST_PERCENT*100:.0f}%.",
+        "effect_value": GHOST_PROTOCOL_DECAY_BOOST_PERCENT,
+        "prerequisites": [SkillID.COMPARTMENTALIZATION]
     },
-    SkillID.MARKET_ANALYST: {  #: Skill to show daily price change indicators.
+
+    # --- Other existing skills (ensure they have tier, category, prerequisites) ---
+    SkillID.MARKET_ANALYST: { # This seems like a Street Smarts skill, maybe T1 or T2
         "name": "Market Analyst",
-        "cost": SKILL_MARKET_ANALYST_COST,
+        "cost": SKILL_MARKET_ANALYST_COST, # Existing const: 2
+        "tier": 1, # Assuming it's a separate T1 skill for now, or could be an alternative T2 Street Smarts
+        "category": "Street Smarts", # Or "General"
         "description": "Shows if a drug's price has increased, decreased, or stayed stable since yesterday.",
+        "prerequisites": [] # No prereqs if it's a separate T1
+    },
+    # GHOST_NETWORK_ACCESS is an upgrade, not a skill point skill currently.
+}
+
+
+# --- Contact Definitions ---
+ContactService = Dict[str, Any] # e.g. {"id": "FAKE_IDS", "name": "Fake IDs", "cost": 1000}
+ContactDefinition = Dict[str, Union[str, RegionName, int, List[ContactService]]]
+CONTACT_DEFINITIONS: Dict[ContactID, ContactDefinition] = {
+    ContactID.INFORMANT: {
+        "name": "The Informant",
+        "description": "Whispers secrets of the street... for a price.",
+        "region": RegionName.DOWNTOWN, # Example starting/primary region
+        "initial_trust": 50,
+        "services": [ # Placeholder, actual services are hardcoded in actions
+            {"id": "RUMOR", "name": "Ask about Rumors", "cost": INFORMANT_TIP_COST_RUMOR},
+            {"id": "DRUG_INFO", "name": "Ask about Drug Prices/Availability", "cost": INFORMANT_TIP_COST_DRUG_INFO},
+            {"id": "RIVAL_INFO", "name": "Ask about Rival Status", "cost": INFORMANT_TIP_COST_RIVAL_INFO},
+        ]
+    },
+    ContactID.TECH_CONTACT: {
+        "name": "Tech Contact",
+        "description": "Handles your digital needs, from crypto to secure comms.",
+        "region": RegionName.COMMERCIAL, # Example
+        "initial_trust": 50,
+        "services": [ # Placeholder, actual services are hardcoded in actions
+            {"id": "BUY_CRYPTO", "name": "Buy Cryptocurrency"},
+            {"id": "SELL_CRYPTO", "name": "Sell Cryptocurrency"},
+            {"id": "LAUNDER_CASH", "name": "Launder Cash"},
+            {"id": "STAKE_DC", "name": "Stake DrugCoin"},
+            {"id": "UNSTAKE_DC", "name": "Unstake DrugCoin"},
+            {"id": "COLLECT_REWARDS", "name": "Collect Staking Rewards"},
+            {"id": "PURCHASE_SECURE_PHONE", "name": "Purchase Secure Phone", "cost_item": "SECURE_PHONE"},
+            {"id": "PURCHASE_GHOST_NETWORK", "name": "Purchase Ghost Network Access", "cost_item": "GHOST_NETWORK_ACCESS"},
+        ]
+    },
+    ContactID.CORRUPT_OFFICIAL: {
+        "name": "Corrupt Official",
+        "description": "Can make legal troubles... or heat... disappear.",
+        "region": RegionName.DOWNTOWN, # Example
+        "initial_trust": 20, # Starts lower
+        "services": [
+            {"id": "REDUCE_HEAT", "name": "Request Heat Reduction", "cost_dynamic": True},
+        ]
+    },
+    ContactID.THE_FORGER: {
+        "name": "The Forger",
+        "description": "Provides high-quality counterfeit documents and IDs.",
+        "region": RegionName.OLD_TOWN, # Example
+        "initial_trust": 40,
+        "services": [
+            {"id": "FAKE_ID_BASIC", "name": "Basic Fake ID", "cost": 500, "effect_desc": "Slightly reduces police stop search chance."},
+            {"id": "FAKE_ID_PREMIUM", "name": "Premium Fake ID", "cost": 2000, "effect_desc": "Moderately reduces search chance, may fool basic checks."},
+            # {"id": "BUSINESS_DOCS", "name": "Business Front Documents", "cost": 10000, "effect_desc": "Unlocks new laundering opportunities or reduces laundering fees."},
+        ]
+    },
+    ContactID.LOGISTICS_EXPERT: {
+        "name": "Logistics Expert",
+        "description": "Master of discreet transportation and hidden storage.",
+        "region": RegionName.DOCKS, # Example
+        "initial_trust": 40,
+        "services": [
+            {"id": "SMUGGLING_ROUTE", "name": "Establish Smuggling Route", "cost": 3000, "effect_desc": "Reduces travel risk to/from a specific region for a time."},
+            {"id": "HIDDEN_STORAGE", "name": "Rent Hidden Storage", "cost_monthly": 500, "effect_desc": "Increases personal stash capacity outside of inventory."},
+            # {"id": "VEHICLE_MOD", "name": "Vehicle Modification (Hidden Compartment)", "cost": 7500, "effect_desc": "Significantly reduces confiscation risk during police stops."},
+        ]
     },
 }
+
 
 #: Definitions for purchasable upgrades.
 UpgradeDefinitionValues = Union[
@@ -693,3 +837,166 @@ REGION_DEFINITIONS: List[RegionDefinitionTuple] = [
         ],
     ),
 ]
+
+# --- Win Condition Configurations ---
+TARGET_NET_WORTH_AMOUNT: float = 1000000.0  # Example: 1 Million
+CARTEL_CROWN_NET_WORTH_AMOUNT: float = 5000000.0 # Example: 5 Million
+# CARTEL_CROWN_REGIONS_DOMINATED: int = 3 # Original idea, simplified for now
+DIGITAL_EMPIRE_CRYPTO_VALUE: float = 2000000.0 # Example: 2 Million in crypto
+PERFECT_RETIREMENT_NET_WORTH_AMOUNT: float = 500000.0 # Example: 500k
+PERFECT_RETIREMENT_MAX_AVG_HEAT: int = 10 # Average regional heat below this
+PERFECT_RETIREMENT_MIN_INFORMANT_TRUST: int = 90
+
+
+# --- Mid-Game Legacy Scenario Configurations ---
+LEGACY_SCENARIO_CASH_REWARD: float = 10000.0
+LEGACY_SCENARIO_SKILL_POINTS_REWARD: int = 1
+THE_CLEANER_HEAT_REDUCTION_BONUS: int = 10
+
+REGIONAL_BARON_SALES_THRESHOLD_PER_REGION: float = 100000.0 # e.g., $100k profit in a region
+REGIONAL_BARON_REGIONS_REQUIRED: int = 2 # e.g., dominate 2 regions
+
+CRYPTO_WHALE_PORTFOLIO_VALUE_MIDGAME: float = 250000.0 # e.g., $250k in crypto (total value)
+CRYPTO_WHALE_MIN_LARGE_TRANSACTIONS: int = 3
+CRYPTO_WHALE_LARGE_TRANSACTION_THRESHOLD: float = 20000.0 # A single crypto trade (buy/sell) worth over $20k
+
+THE_CLEANER_TOTAL_LAUNDERED_THRESHOLD: float = 100000.0 # e.g., $100k successfully laundered
+THE_CLEANER_MAX_AVG_HEAT_MIDGAME: int = 20 # Maintain average regional heat below this
+THE_CLEANER_MIN_TECH_CONTACT_TRUST: int = 75 # High trust with Tech Contact
+
+
+# --- Turf War Event Configurations ---
+TURF_WAR_CONFIG: Dict[str, Any] = {
+    "base_chance_per_day_per_region": 0.01,  # 1% chance per day per region
+    "min_duration_days": 3,
+    "max_duration_days": 7,
+    "affected_drug_count": 2,  # Number of drugs to be affected in the region
+    "price_volatility_multiplier_min": 1.2, # Price can go up by 20%
+    "price_volatility_multiplier_max": 2.0, # Price can go up by 100% (or down if inverted)
+    "availability_reduction_factor_min": 0.2, # Stock reduced to 20% of normal
+    "availability_reduction_factor_max": 0.6, # Stock reduced to 60% of normal
+    "heat_increase_on_start_min": 10,
+    "heat_increase_on_start_max": 25,
+    "contact_unavailable_chance": 0.25, # 25% chance for each contact in the region to become unavailable
+    "message_on_start_template": "A turf war has erupted in {region_name} over the {drug_names_str} trade! Expect chaos.",
+    "message_on_end_template": "The turf war in {region_name} has subsided... for now."
+}
+
+# --- Opportunity Event Global Chance ---
+OPPORTUNITY_EVENT_BASE_CHANCE: float = 0.10  # 10% chance per day an opportunity event might trigger
+
+# --- Quest Definitions ---
+# Quest items are conceptual and stored in player_inventory.special_items
+# Quest stage '0' is typically offering the quest.
+# Quest stage '1' is often an "in-progress" state where player needs to do something.
+# Higher numbers for further stages. A negative number like -1 could mean "completed".
+
+QUEST_DEFINITIONS: Dict[QuestID, Dict[str, Any]] = {
+    QuestID.FORGER_SUPPLY_RUN: {
+        "title": "Forger's Supply Run",
+        "contact_id": ContactID.THE_FORGER,
+        "min_trust_to_start": 45, # Player needs some trust with The Forger
+        "stages": {
+            0: { # Stage 0: Offer quest
+                "description_template": "I'm running low on some specialized inks and security paper. If you could fetch me {quantity} units of 'Special Supplies' from {target_region_name}, I'd make it worth your while. Plus, it'd show me I can count on you.",
+                "objective_item": "Special Supplies", # Conceptual item name
+                "objective_quantity": 5,
+                "target_region_name": RegionName.INDUSTRIAL, # Example: Supplies are in Industrial
+                "accept_text": "I'll get your supplies.",
+                "decline_text": "Can't help right now."
+            },
+            1: { # Stage 1: In Progress - Player needs to acquire items
+                "description_template": "Did you manage to get those {quantity} 'Special Supplies' from {target_region_name} for me?",
+                "objective_item": "Special Supplies",
+                "objective_quantity": 5,
+                "target_region_name": RegionName.INDUSTRIAL,
+                "completion_text": "Yes, I have the supplies." # Button text to complete
+            },
+            2: { # Stage 2: Completed (or a terminal stage for quest dialogue)
+                "description_template": "Excellent! These are perfect. Thanks for your help, I owe you one.",
+                "rewards": {
+                    "trust_increase": { "contact_id": ContactID.THE_FORGER, "amount": 20 },
+                    "cash_reward": 750,
+                    # "unlocks_service": "PREMIUM_FAKE_ID" # Example: could unlock a better service
+                },
+                "is_completion_stage": True # Marks this as a stage where quest is considered complete
+            }
+        },
+        "repeatable": False,
+        "start_message": "The Forger looks you over. 'Got a little job for you, if you're interested...'",
+        "current_stage_var": "forger_supply_run_stage" # Variable name in player_inventory.active_quests[quest_id]['current_stage']
+    }
+    # Add more quests here
+}
+
+# --- Opportunity Event Definitions ---
+# Structure: {EventType: {name, description_template, choices: [{text, outcomes: [{type, params, message, chance}]}]}}
+# Outcome types: 'give_drugs', 'lose_drugs', 'gain_cash', 'lose_cash', 'change_heat', 'change_trust', 'nothing', 'goto_view' (special)
+# Parameters for outcomes will vary. E.g., for 'give_drugs': {'drug_name': DrugName, 'quality': DrugQuality, 'quantity': int}
+# For 'change_trust': {'contact_id': ContactID, 'amount': int}
+
+OPPORTUNITY_EVENTS_DEFINITIONS: Dict[EventType, Dict[str, Any]] = {
+    EventType.RIVAL_STASH_LEAKED: {
+        "name": "Rival's Stash Leaked",
+        "description_template": "An informant whispers about a rival's poorly guarded stash of {drug_name} ({quantity} units) nearby. It's risky, but the score could be big.",
+        # Dynamic elements for description to be filled at runtime: drug_name, quantity
+        "choices": [
+            {
+                "text": "Attempt to steal",
+                "outcomes": [
+                    {"type": "give_drugs", "params": {"quantity_range": (10, 30)}, "message": "Success! You raided the stash and made off with {quantity_stolen} units of {drug_name_stolen}!", "chance": 0.6},
+                    {"type": "change_heat", "params": {"amount_range": (10, 25)}, "message": "Spotted! You managed to escape, but heat in {region_name} increased by {heat_change}.", "chance": 0.3},
+                    {"type": "lose_cash", "params": {"amount_range": (100, 500)}, "message": "A guard caught you! You bribed your way out, losing ${cash_lost}.", "chance": 0.1},
+                ]
+            },
+            {
+                "text": "Ignore it",
+                "outcomes": [
+                    {"type": "nothing", "message": "You decide it's not worth the risk."}
+                ]
+            }
+        ]
+    },
+    EventType.URGENT_DELIVERY: {
+        "name": "Urgent Delivery Request",
+        "description_template": "A shady client needs a rush delivery of {quantity} units of {drug_name} to {target_region_name}. They're paying a premium of ${reward_per_unit:.2f} per unit over current market sell price.",
+        # Dynamic elements: quantity, drug_name, target_region_name, reward_per_unit
+        "choices": [
+            {
+                "text": "Accept delivery (Need {quantity} {drug_name})", # This text will be dynamically updated with actuals
+                "id": "accept_delivery", # To identify the choice if player doesn't have drugs
+                "outcomes": [
+                    # Note: 'lose_drugs' and 'gain_cash' will be handled by specific logic that checks inventory
+                    {"type": "resolve_delivery", "message": "Delivery successful! You earned an extra ${total_premium:.2f} on top of the sale."} 
+                ]
+            },
+            {
+                "text": "Decline",
+                "outcomes": [
+                    {"type": "nothing", "message": "You decline the risky delivery."}
+                ]
+            }
+        ]
+    },
+    EventType.EXPERIMENTAL_DRUG_BATCH: {
+        "name": "Experimental Drug Batch",
+        "description_template": "A local chemist offers you a batch of experimental {drug_name} ({quantity} units) for ${cost:.2f}. It's untested...",
+        # Dynamic elements: drug_name, quantity, cost
+        "choices": [
+            {
+                "text": "Buy the batch",
+                "outcomes": [
+                    {"type": "give_drugs_experimental", "params": {"quality_outcome": DrugQuality.PURE, "quantity_multiplier": 1.2}, "message": "This stuff is potent! You got {quantity_received} units of high-quality experimental {drug_name}.", "chance": 0.3},
+                    {"type": "give_drugs_experimental", "params": {"quality_outcome": DrugQuality.CUT, "quantity_multiplier": 0.8}, "message": "The batch was mostly filler. You only got {quantity_received} units of low-quality experimental {drug_name}.", "chance": 0.4},
+                    {"type": "give_drugs_experimental", "params": {"quality_outcome": DrugQuality.STANDARD, "quantity_multiplier": 1.0, "side_effect_heat": 15}, "message": "The drugs are okay ({quantity_received} units of {drug_name}), but they're attracting attention! Heat +{heat_increase}.", "chance": 0.3},
+                ]
+            },
+            {
+                "text": "Pass on it",
+                "outcomes": [
+                    {"type": "nothing", "message": "You decide to avoid the unknown."}
+                ]
+            }
+        ]
+    }
+}

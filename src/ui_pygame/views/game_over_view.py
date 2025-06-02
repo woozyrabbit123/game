@@ -43,13 +43,19 @@ def draw_game_over_view(surface: pygame.Surface, message: str, buttons: List[But
 
     # Display Game Over Title
     title_y = popup_y + 40
+    title_text = "GAME OVER"
+    title_color = IMPERIAL_RED
+    if message.startswith("YOU WON:"):
+        title_text = "VICTORY!"
+        title_color = GOLDEN_YELLOW # Use a victory color
+
     draw_text(
         surface,
-        "GAME OVER",
+        title_text,
         popup_rect.centerx,
         title_y,
         font=FONT_XLARGE,
-        color=IMPERIAL_RED,
+        color=title_color,
         center_aligned=True,
     )  # Larger font for title
 

@@ -45,6 +45,22 @@ class GameState:
         self.current_player_region: Optional[Region] = None
         self.informant_unavailable_until_day: Optional[int] = None
         self.current_day: int = 1
+        self.game_won: bool = False
+        self.win_condition_achieved: Optional[str] = None
+        
+        # Attributes for Legacy Scenario tracking
+        self.player_sales_profit_by_region: Dict[RegionName, float] = {name: 0.0 for name in RegionName}
+        self.achieved_legacy_scenarios: List[str] = []
+        # self.mid_game_average_heat: Optional[float] = None # This might be calculated on the fly or stored if needed for multiple checks
+
+        # Seasonal Event Tracking
+        self.current_seasonal_event: Optional[str] = None # Stores the ID/key of the active seasonal event
+        self.seasonal_event_effects_active: Dict[str, Any] = {} # Stores the 'effects' dict of the active event
+        self.seasonal_event_name_map: Dict[str, str] = {} # Maps event ID to friendly name for convenience
+
+        # Turf War Tracking
+        self.active_turf_wars: Dict[RegionName, Dict[str, Any]] = {}
+
 
         # Initialize core game state and world regions
         self._initialize_core_state()
@@ -312,6 +328,8 @@ class GameState:
             "ai_rivals_count": len(self.ai_rivals),
             "informant_unavailable_until_day": self.informant_unavailable_until_day,
             "all_region_names": list(all_regions_summary.keys()),
+            "game_won": self.game_won,
+            "win_condition_achieved": self.win_condition_achieved,
         }
 
 

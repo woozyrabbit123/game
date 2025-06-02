@@ -4,7 +4,7 @@ and status.
 """
 from typing import Dict, List, Optional, Set, Union, TYPE_CHECKING
 
-from .enums import CryptoCoin, DrugName, DrugQuality, SkillID
+from .enums import CryptoCoin, DrugName, DrugQuality, SkillID, ContactID # Added ContactID
 
 
 if TYPE_CHECKING:
@@ -43,6 +43,8 @@ class PlayerInventory:
     def __init__(
         self, max_capacity: Optional[int] = None, starting_cash: Optional[float] = None
     ) -> None:
+        # Import QuestID here if it's used as a type hint, or ensure it's available for Dict key
+        from .enums import QuestID # For type hinting active_quests keys
         """
         Initializes the PlayerInventory.
 
@@ -75,7 +77,22 @@ class PlayerInventory:
         self.capacity_upgrades_purchased: int = 0
         self.skill_points: int = 0
         self.unlocked_skills: Set[str] = set()  # Storing SkillID.value (str)
-        self.informant_trust: int = 0
+        
+        # Contact Trust Levels - Using a dictionary for scalability
+        self.contact_trusts: Dict[ContactID, int] = {}
+        # Initialize trust for all known contacts
+        from .. import narco_configs # Lazy import for configs
+        if hasattr(narco_configs, 'CONTACT_DEFINITIONS'):
+            for contact_id_enum in narco_configs.CONTACT_DEFINITIONS:
+                self.contact_trusts[contact_id_enum] = narco_configs.CONTACT_DEFINITIONS[contact_id_enum].get('initial_trust', 0)
+        else: # Fallback if CONTACT_DEFINITIONS is missing
+            self.contact_trusts[ContactID.INFORMANT] = 50 # Default example
+            self.contact_trusts[ContactID.TECH_CONTACT] = 50
+            self.contact_trusts[ContactID.CORRUPT_OFFICIAL] = 20
+            self.contact_trusts[ContactID.THE_FORGER] = 40
+            self.contact_trusts[ContactID.LOGISTICS_EXPERT] = 40
+            
+        # self.informant_trust: int = 0 # Replaced by contact_trusts
 
         self.crypto_wallet: Dict[CryptoCoin, float] = {}
         for coin_enum_member in CryptoCoin:
@@ -96,6 +113,15 @@ class PlayerInventory:
         self.debt_payment_1_paid: bool = False
         self.debt_payment_2_paid: bool = False
         self.debt_payment_3_paid: bool = False
+        
+        # Attributes for Legacy Scenario tracking
+        self.total_laundered_cash: float = 0.0
+        self.large_crypto_transactions_completed: int = 0
+
+        # Quest Tracking
+        self.active_quests: Dict[QuestID, Dict[str, Any]] = {} # Stores current stage and quest-specific data
+        self.completed_quests: List[QuestID] = []
+        self.special_items: Dict[str, int] = {} # For quest items like "Special Supplies"
 
     def unlock_skill(self, skill_id_str: str, cost: int) -> bool:
         """
@@ -323,10 +349,21 @@ class PlayerInventory:
 
         if self.has_secure_phone:
             special_unlocks.append('Secure Phone')
-        if self.ghost_network_access > 0:
+        if self.ghost_network_access > 0: # This is an upgrade, not a skill from SkillID enum
             special_unlocks.append(
                 f'Ghost Network Access ({self.ghost_network_access} days)'
             )
+        
+        contact_trust_lines: List[str] = ["\nContact Trust:"]
+        if self.contact_trusts:
+            for contact_id, trust_level in self.contact_trusts.items():
+                # Assuming ContactID enum has a .name attribute for a user-friendly display
+                contact_name_str = contact_id.name.replace("_", " ").title()
+                contact_trust_lines.append(f"  {contact_name_str}: {trust_level}")
+        else:
+            contact_trust_lines.append("  No established contacts.")
+        summary_parts.extend(contact_trust_lines)
+
 
         if special_unlocks:
             summary_parts.append('\nSpecial Access/Items:')
