@@ -53,6 +53,7 @@ def apply_player_sell_impact(
     drug_name_enum: DrugName,
     quantity_sold: int,
     game_configs_data: Any,
+    game_state: Optional[Any] = None, # Added game_state parameter
 ) -> None:
     """
     Applies market impact to a drug when the player sells it.
@@ -60,6 +61,7 @@ def apply_player_sell_impact(
     Decreases the 'player_sell_impact_modifier' for the drug in the region,
     making subsequent sells potentially less profitable. The impact is capped.
     If the player has the Compartmentalization skill, the impact is reduced.
+    Also applies seasonal event heat modifiers.
 
     Args:
         player_inv: The PlayerInventory object (to check for skills).
@@ -67,6 +69,7 @@ def apply_player_sell_impact(
         drug_name_enum: The DrugName of the drug sold.
         quantity_sold: The quantity of the drug sold.
         game_configs_data: The game configuration module or object.
+        game_state: The current GameState object, for seasonal effects.
     """
     if drug_name_enum not in region.drug_market_data:
         return
@@ -102,9 +105,19 @@ def apply_player_sell_impact(
 
         generated_heat: float = float(quantity_sold * heat_per_unit)
 
+        # Apply Compartmentalization skill effect
         if SkillID.COMPARTMENTALIZATION.value in player_inv.unlocked_skills:
             reduction_percent: float = game_configs_data.COMPARTMENTALIZATION_HEAT_REDUCTION_PERCENT
             generated_heat *= (1.0 - reduction_percent)
+
+        # Apply Seasonal Event heat modifier
+        # This requires game_state to be passed to this function, or effects fetched differently.
+        # For now, assuming game_state is accessible via player_inv or game_configs_data (if it holds a ref)
+        # Apply Seasonal Event heat modifier
+        if game_state and game_state.seasonal_event_effects_active:
+            heat_multiplier_effect = game_state.seasonal_event_effects_active.get("base_heat_increase_on_sale_multiplier")
+            if isinstance(heat_multiplier_effect, (float, int)): # Ensure it's a number
+                 generated_heat *= heat_multiplier_effect
 
         if generated_heat > 0:
             region.modify_heat(int(round(generated_heat)))

@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 # Local application imports
 from .. import narco_configs # Modified to import module
 from .drug import Drug
-from .enums import DrugName, DrugQuality, EventType, RegionName
+from .enums import DrugName, DrugQuality, EventType, RegionName, SkillID # Added SkillID
 from .market_event import MarketEvent
 
 
@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 
 
 class Region:
+    # Note: player_inventory is passed to get_buy_price and get_sell_price for skill checks.
+    # game_state will now also be passed for seasonal event checks.
     """
     Represents a distinct geographical region in the game world.
 
@@ -141,15 +143,17 @@ class Region:
                 return factor
         return 1.0
 
-    def get_buy_price(self, drug_name: DrugName, quality: DrugQuality) -> float:
+    def get_buy_price(self, drug_name: DrugName, quality: DrugQuality, player_inventory: Optional[Any] = None, game_state: Optional["GameState"] = None) -> float: # Add game_state
         """
         Calculates current buy price for a drug/quality in this region.
 
-        Considers base price, quality, player/rival impact, heat, and events.
+        Considers base price, quality, player/rival impact, heat, events, player skills, and seasonal events.
 
         Args:
             drug_name: The DrugName of the drug.
             quality: The DrugQuality of the drug.
+            player_inventory: Player's inventory, to check for skills. Optional for compatibility.
+            game_state: Current game state, to check for seasonal event effects. Optional for compatibility.
 
         Returns:
             Calculated current buy price. Returns 0.0 if not available.
@@ -234,18 +238,52 @@ class Region:
                     calculated_price *= event.buy_price_multiplier
                     break  # Assuming one such event is dominant
 
+        # Apply Street Smarts skill effects for buying (player gets a discount)
+        if player_inventory and hasattr(player_inventory, 'unlocked_skills'):
+            price_modifier_buy = 0.0
+            if SkillID.ADVANCED_MARKET_ANALYSIS.value in player_inventory.unlocked_skills:
+                skill_effect = narco_configs.SKILL_DEFINITIONS[SkillID.ADVANCED_MARKET_ANALYSIS].get('effect_value', 0.0)
+                if isinstance(skill_effect, (float, int)): price_modifier_buy += skill_effect
+            if SkillID.MASTER_NEGOTIATOR.value in player_inventory.unlocked_skills:
+                skill_effect = narco_configs.SKILL_DEFINITIONS[SkillID.MASTER_NEGOTIATOR].get('effect_value', 0.0)
+                if isinstance(skill_effect, (float, int)): price_modifier_buy += skill_effect
+            
+            if price_modifier_buy > 0:
+                calculated_price *= (1.0 - price_modifier_buy)
+
+        # Apply Seasonal Event effects for drug buy prices
+        if game_state and game_state.seasonal_event_effects_active:
+            buy_price_effects = game_state.seasonal_event_effects_active.get("drug_price_buy_multiplier", {})
+            drug_specific_mult = buy_price_effects.get(drug_name.value) # Check for specific drug
+            all_drugs_mult = buy_price_effects.get("ALL") # Check for "ALL" drugs
+
+            if drug_specific_mult is not None:
+                calculated_price *= drug_specific_mult
+            elif all_drugs_mult is not None:
+                calculated_price *= all_drugs_mult
+
+        # Apply Turf War effects for drug buy prices
+        if game_state and self.name in game_state.active_turf_wars:
+            war_data = game_state.active_turf_wars[self.name]
+            for affected_drug_detail in war_data.get("affected_drugs", []):
+                if affected_drug_detail["drug_name"] == drug_name:
+                    calculated_price *= affected_drug_detail.get("turf_war_buy_price_factor", 1.0)
+                    break 
+                
         return round(max(0, calculated_price), 2)
 
-    def get_sell_price(self, drug_name: DrugName, quality: DrugQuality) -> float:
+    def get_sell_price(self, drug_name: DrugName, quality: DrugQuality, player_inventory: Optional[Any] = None, game_state: Optional["GameState"] = None) -> float: # Add game_state
         """
         Calculates current sell price for a drug/quality in this region.
 
-        Considers base price, quality, player/rival impact, and events.
+        Considers base price, quality, player/rival impact, events, player skills, and seasonal events.
         Heat typically doesn't directly affect player's sell price here.
 
         Args:
             drug_name: The DrugName of the drug.
             quality: The DrugQuality of the drug.
+            player_inventory: Player's inventory, to check for skills. Optional for compatibility.
+            game_state: Current game state, to check for seasonal event effects. Optional for compatibility.
 
         Returns:
             Calculated current sell price. Returns 0.0 if not sellable.
@@ -301,24 +339,56 @@ class Region:
                     calculated_price *= event.sell_price_multiplier
                     break
 
+        # Apply Street Smarts skill effects for selling (player gets a bonus)
+        if player_inventory and hasattr(player_inventory, 'unlocked_skills'):
+            price_modifier_sell = 0.0
+            if SkillID.ADVANCED_MARKET_ANALYSIS.value in player_inventory.unlocked_skills:
+                skill_effect = narco_configs.SKILL_DEFINITIONS[SkillID.ADVANCED_MARKET_ANALYSIS].get('effect_value', 0.0)
+                if isinstance(skill_effect, (float, int)): price_modifier_sell += skill_effect
+            if SkillID.MASTER_NEGOTIATOR.value in player_inventory.unlocked_skills:
+                skill_effect = narco_configs.SKILL_DEFINITIONS[SkillID.MASTER_NEGOTIATOR].get('effect_value', 0.0)
+                if isinstance(skill_effect, (float, int)): price_modifier_sell += skill_effect
+
+            if price_modifier_sell > 0:
+                calculated_price *= (1.0 + price_modifier_sell)
+
+        # Apply Seasonal Event effects for drug sell prices
+        if game_state and game_state.seasonal_event_effects_active:
+            sell_price_effects = game_state.seasonal_event_effects_active.get("drug_price_sell_multiplier", {})
+            drug_specific_mult = sell_price_effects.get(drug_name.value)
+            all_drugs_mult = sell_price_effects.get("ALL")
+
+            if drug_specific_mult is not None:
+                calculated_price *= drug_specific_mult
+            elif all_drugs_mult is not None:
+                calculated_price *= all_drugs_mult
+
+        # Apply Turf War effects for drug sell prices
+        if game_state and self.name in game_state.active_turf_wars:
+            war_data = game_state.active_turf_wars[self.name]
+            for affected_drug_detail in war_data.get("affected_drugs", []):
+                if affected_drug_detail["drug_name"] == drug_name:
+                    calculated_price *= affected_drug_detail.get("turf_war_sell_price_factor", 1.0)
+                    break
+
         return round(max(0, calculated_price), 2)
 
-    def get_available_stock(
+    def get_available_stock( # Signature changed to accept game_state directly
         self,
         drug_name: DrugName,
         quality: DrugQuality,
-        game_state_instance: "GameState",
+        game_state: Optional["GameState"], # Changed from game_state_instance to game_state
     ) -> int:
         """
         Calculates available stock for a drug/quality.
 
-        Considers base stock, regional heat (for Tier 2/3 drugs), and
-        Supply Disruption events. Player heat is not directly used here for stock.
+        Considers base stock, regional heat (for Tier 2/3 drugs), 
+        Supply Disruption events, and Turf Wars.
 
         Args:
             drug_name: DrugName of the drug.
             quality: DrugQuality of the drug.
-            game_state_instance: Current GameState object.
+            game_state: Current GameState object, for seasonal/turf war effects.
 
         Returns:
             Calculated available stock (int).
@@ -366,7 +436,16 @@ class Region:
                 )
                 modified_stock = max(modified_stock,
                                        event.min_stock_after_event)
-        return max(0, int(modified_stock))
+        
+        # Apply Turf War effects for drug availability
+        if game_state and self.name in game_state.active_turf_wars:
+            war_data = game_state.active_turf_wars[self.name]
+            for affected_drug_detail in war_data.get("affected_drugs", []):
+                if affected_drug_detail["drug_name"] == drug_name:
+                    modified_stock *= affected_drug_detail.get("turf_war_availability_factor", 1.0)
+                    break
+                    
+        return max(0, int(math.floor(modified_stock))) # Ensure floor before int conversion
 
     def update_stock_on_buy(
         self, drug_name: DrugName, quality: DrugQuality, quantity_bought: int

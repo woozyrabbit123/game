@@ -65,6 +65,34 @@ class SkillID(Enum):
         'GHOST_NETWORK_ACCESS'  #: Access special crypto shop.
     )
 
+    # Street Smarts Tier 2 & 3
+    ADVANCED_MARKET_ANALYSIS = 'ADVANCED_MARKET_ANALYSIS' # Street Smarts T2
+    MASTER_NEGOTIATOR = 'MASTER_NEGOTIATOR' # Street Smarts T3
+
+    # Network Tier 1, 2 & 3
+    BASIC_CONNECTIONS = 'BASIC_CONNECTIONS' # Network T1
+    EXPANDED_NETWORK = 'EXPANDED_NETWORK' # Network T2
+    SYNDICATE_INFLUENCE = 'SYNDICATE_INFLUENCE' # Network T3
+
+    # OpSec Tiers are already defined:
+    # DIGITAL_FOOTPRINT is OpSec T1
+    # COMPARTMENTALIZATION is OpSec T2
+    # GHOST_PROTOCOL is OpSec T3
+
+
+class ContactID(Enum):
+    """Unique identifiers for player contacts."""
+    INFORMANT = "INFORMANT"
+    TECH_CONTACT = "TECH_CONTACT"
+    CORRUPT_OFFICIAL = "CORRUPT_OFFICIAL"
+    THE_FORGER = "THE_FORGER"
+    LOGISTICS_EXPERT = "LOGISTICS_EXPERT"
+
+class QuestID(Enum):
+    """Unique identifiers for player quests."""
+    FORGER_SUPPLY_RUN = "FORGER_SUPPLY_RUN"
+    # Add other quest IDs here as they are created
+
 
 class EventType(Enum):
     """Defines the types of events that can occur in the game market or to the player."""
@@ -86,3 +114,9 @@ class EventType(Enum):
     FORCED_FIRE_SALE = (
         'FORCED_FIRE_SALE'  #: Player forced to sell drugs at a penalty.
     )
+    TURF_WAR = 'TURF_WAR' #: Conflict between factions affecting a region.
+
+    # New Opportunity Events
+    RIVAL_STASH_LEAKED = 'RIVAL_STASH_LEAKED' #: Opportunity to steal from a rival.
+    URGENT_DELIVERY = 'URGENT_DELIVERY' #: Opportunity for a high-paying quick delivery.
+    EXPERIMENTAL_DRUG_BATCH = 'EXPERIMENTAL_DRUG_BATCH' #: Opportunity to buy a risky new drug batch.
